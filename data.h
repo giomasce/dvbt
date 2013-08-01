@@ -39,4 +39,25 @@ size_t CONTINUAL_PILOTS_LEN[] = {
   sizeof(CONTINUAL_PILOTS_8K) / sizeof(CONTINUAL_PILOTS_8K[0])
 };
 
+uint16_t TPS_CARRIERS_2K[] = {
+  34,   50,   209,  346,  413,
+  569,  595,  688,  790,  901,
+  1073, 1219, 1262, 1286, 1469,
+  1594, 1687
+};
+
+uint16_t TPS_CARRIERS_8K[] = {
+  0 // missing
+};
+
+uint16_t *TPS_CARRIERS[] = {
+  TPS_CARRIERS_2K,
+  TPS_CARRIERS_8K
+};
+
+size_t TPS_CARRIERS_LEN[] = {
+  sizeof(TPS_CARRIERS_2K) / sizeof(TPS_CARRIERS_2K[0]),
+  sizeof(TPS_CARRIERS_8K) / sizeof(TPS_CARRIERS_8K[0])
+};
+
 #endif

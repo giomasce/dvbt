@@ -15,6 +15,8 @@ const double GUARD_INT_RATIO[] = { 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4 };
 
 OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans_mode, GuardInt guard_int, SlidingWindow *sw) {
 
+  build_pilot_sequence();
+
   OFDMContext *ctx = malloc(sizeof(OFDMContext));
 
   ctx->samp_freq = samp_freq;
@@ -35,8 +37,10 @@ OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans
   ctx->signal = fftw_malloc(sizeof(double) * ctx->packet_len);
   ctx->freqs = fftw_malloc(sizeof(complex) * ((ctx->packet_len + 1) / 2));
 
-  ctx->fft_forward_plan = fftw_plan_dft_r2c_1d(ctx->packet_len, ctx->signal, ctx->freqs, FFTW_ESTIMATE);
-  ctx->fft_backward_plan = fftw_plan_dft_c2r_1d(ctx->packet_len, ctx->freqs, ctx->signal, FFTW_ESTIMATE);
+  unsigned int flags = FFTW_MEASURE | FFTW_DESTROY_INPUT;
+  flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
+  ctx->fft_forward_plan = fftw_plan_dft_r2c_1d(ctx->packet_len, ctx->signal, ctx->freqs, flags);
+  ctx->fft_backward_plan = fftw_plan_dft_c2r_1d(ctx->packet_len, ctx->freqs, ctx->signal, flags);
 
   ctx->sw = sw;
 
@@ -84,8 +88,6 @@ double ofdm_context_optimize_offset(OFDMContext *ctx, double half_width, double 
   double derivative = 0.0;
   double position = -half_width;
   Heap *heap = heap_new(CONTINUAL_PILOTS_LEN[ctx->trans_mode]);
-
-  build_pilot_sequence();
 
   size_t i;
   for (i = 0; i < CONTINUAL_PILOTS_LEN[ctx->trans_mode]; i++) {
@@ -159,6 +161,23 @@ void ofdm_context_shift_freqs(OFDMContext *ctx, double samples) {
     double time = samples / ctx->samp_freq;
     ctx->freqs[idx] *= cexp(2 * M_PI * I * real_freq * time);
   }
+
+}
+
+uint8_t ofdm_context_read_tps_bit(OFDMContext *ctx) {
+
+  uint16_t votes[2];
+  votes[0] = 0;
+  votes[1] = 1;
+  int i;
+  for (i = 0; i < TPS_CARRIERS_LEN[ctx->trans_mode]; i++) {
+    uint16_t carrier = TPS_CARRIERS[ctx->trans_mode][i];
+    uint8_t read_bit = creal(ctx->freqs[ctx->lower_idx+carrier]) > 0.0;
+    uint8_t inverted_carrier = !!pilot_sequence[carrier];
+    votes[read_bit ^ inverted_carrier]++;
+  }
+
+  return votes[1] > votes[0];
 
 }
 

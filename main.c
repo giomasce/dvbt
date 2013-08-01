@@ -30,6 +30,7 @@ int main() {
   fprintf(stderr, "%f %d\n", min_value, min_offset);
   sw_advance(sw, min_offset);
 
+  i = 0;
   while (true) {
     sw_reserve_front(sw, 2 * ctx->full_len);
     sw_reserve_back(sw, 2 * ctx->full_len);
@@ -37,7 +38,8 @@ int main() {
     shift = ofdm_context_optimize_offset(ctx, 30.0, NULL);
     sw_advance(sw, ((int) round(shift)) + ctx->full_len);
     ofdm_context_shift_freqs(ctx, shift);
-    fprintf(stderr, "%d\n", sw->total_offset);
+    fprintf(stderr, "> %d %d %f\n", i, sw->total_offset, shift);
+    i++;
   }
 
   return 0;
