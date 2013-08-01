@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Macros for bitvectors
+#define bv_get(bv, pos) ((bv)[(pos)/8] & (1 << ((pos)%8)))
+#define bv_set(bv, pos, val) (bv)[(pos)/8] = (((bv)[(pos)/8] | ((!!(val)) << ((pos)%8))) & (((!(val)) << ((pos)%8)) ^ 0xff))
+
 typedef struct {
   uint8_t *buf;
   size_t buf_len;
@@ -15,7 +19,6 @@ typedef struct {
   uint32_t reserved_front;
 } SlidingWindow;
 
-size_t fread_exact(void *ptr, size_t size, size_t nmemb, FILE *stream);
 SlidingWindow *sw_new(FILE *fin);
 void sw_destroy(SlidingWindow *sw);
 uint32_t sw_reserve_front(SlidingWindow *sw, size_t n);

@@ -63,10 +63,12 @@ uint32_t sw_reserve_front(SlidingWindow *sw, size_t n) {
     sw->ref = sw->buf + sw->reserved_back;
     // Do we also need to enlarge?
     if (sw->ref + n > sw->buf + sw->buf_len) {
-      sw->buf = realloc(sw->buf, sw->reserved_back + n);
+      sw->buf_len = sw->reserved_back + n;
+      sw->buf = realloc(sw->buf, sw->buf_len);
       if (sw->buf == NULL) {
         return false;
       }
+      sw->ref = sw->buf + sw->reserved_back;
     }
     size_t read = fread_exact(sw->ref + sw->reserved_front, 1, n - sw->reserved_front, sw->fin);
     sw->reserved_front = sw->reserved_front + read;
@@ -81,7 +83,7 @@ uint32_t sw_reserve_front(SlidingWindow *sw, size_t n) {
 
 uint32_t sw_reserve_back(SlidingWindow *sw, size_t n) {
 
-  if ((sw->ref - sw->buf) < n) {
+  if ((sw->ref - sw->buf) >= n) {
     sw->reserved_back = n;
     return true;
   } else {
@@ -103,6 +105,7 @@ uint32_t sw_advance(SlidingWindow *sw, int32_t n) {
   }
 
   sw->ref += n;
+  sw->total_offset += n;
   sw->reserved_back += n;
   sw->reserved_front -= n;
 
@@ -127,7 +130,7 @@ void heap_destroy(Heap *heap) {
 }
 
 // TODO - Can we do it in-place?
-inline void heap_swap(HeapElement *a, HeapElement *b) {
+void heap_swap(HeapElement *a, HeapElement *b) {
 
   HeapElement tmp;
   tmp.weight = a->weight;

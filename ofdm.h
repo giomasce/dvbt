@@ -42,11 +42,19 @@ typedef struct {
   SlidingWindow *sw;
 } OFDMContext;
 
-double PACKET_TIME[] = { 224e-6, 896e-6 };
-uint32_t CARRIER_NUM[] = { 1705, 6817 };
-double GUARD_INT_RATIO[] = { 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4 };
+extern const double PACKET_TIME[];
+extern const uint32_t CARRIER_NUM[];
+extern const uint32_t MAX_CARRIER_NUM;
+extern const double GUARD_INT_RATIO[];
 
 OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans_mode, GuardInt guard_int, SlidingWindow *sw);
 void ofdm_context_destroy(OFDMContext *ctx);
+void ofdm_context_decode_symbol(OFDMContext *ctx, size_t offset);
+double ofdm_context_optimize_offset(OFDMContext *ctx, double half_width, double *min_value);
+void ofdm_context_shift_freqs(OFDMContext *ctx, double samples);
+
+uint8_t *pilot_sequence;
+
+void build_pilot_sequence();
 
 #endif
