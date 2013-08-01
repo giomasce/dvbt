@@ -6,6 +6,9 @@
 
 int main() {
 
+  //fftw_init_threads();
+  //fftw_plan_with_nthreads(8);
+
   //FILE *fin = fopen("data", "r");
 
   SlidingWindow *sw = sw_new(stdin);
@@ -13,11 +16,12 @@ int main() {
 
   sw_advance(sw, 5000);
   sw_reserve_front(sw, 3 * ctx->full_len + 5000);
+  sw_reserve_back(sw, 5000);
 
   int i;
   double shift, value;
   double min_value = 1e9;
-  int min_offset;
+  int min_offset = 0;
   for (i = 0; i < 2 * ctx->full_len; i+= 5000) {
     ofdm_context_decode_symbol(ctx, i);
     shift = ofdm_context_optimize_offset(ctx, 5000.0, &value);
@@ -38,7 +42,11 @@ int main() {
     shift = ofdm_context_optimize_offset(ctx, 30.0, NULL);
     sw_advance(sw, ((int) round(shift)) + ctx->full_len);
     ofdm_context_shift_freqs(ctx, shift);
-    fprintf(stderr, "> %d %d %f\n", i, sw->total_offset, shift);
+    //ofdm_context_dump_freqs(ctx, "dump");
+    ofdm_context_read_tps_bit(ctx);
+    if (i % 1000 == 0) {
+      fprintf(stderr, "> %d %d %f\n", i, sw->total_offset, shift);
+    }
     i++;
   }
 

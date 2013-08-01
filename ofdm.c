@@ -35,7 +35,7 @@ OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans
   ctx->higher_idx = ctx->central_idx + ctx->central_carrier;
 
   ctx->signal = fftw_malloc(sizeof(double) * ctx->packet_len);
-  ctx->freqs = fftw_malloc(sizeof(complex) * ((ctx->packet_len + 1) / 2));
+  ctx->freqs = fftw_malloc(sizeof(double complex) * ((ctx->packet_len + 1) / 2));
 
   unsigned int flags = FFTW_MEASURE | FFTW_DESTROY_INPUT;
   flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
@@ -168,16 +168,27 @@ uint8_t ofdm_context_read_tps_bit(OFDMContext *ctx) {
 
   uint16_t votes[2];
   votes[0] = 0;
-  votes[1] = 1;
+  votes[1] = 0;
   int i;
   for (i = 0; i < TPS_CARRIERS_LEN[ctx->trans_mode]; i++) {
     uint16_t carrier = TPS_CARRIERS[ctx->trans_mode][i];
-    uint8_t read_bit = creal(ctx->freqs[ctx->lower_idx+carrier]) > 0.0;
-    uint8_t inverted_carrier = !!pilot_sequence[carrier];
+    uint8_t read_bit = !!(creal(ctx->freqs[ctx->lower_idx+carrier]) > 0.0);
+    uint8_t inverted_carrier = !!bv_get(pilot_sequence, carrier);
     votes[read_bit ^ inverted_carrier]++;
   }
 
   return votes[1] > votes[0];
+
+}
+
+void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename) {
+
+  FILE *fout = fopen(filename, "w");
+  int idx;
+  for (idx = ctx->lower_idx; idx <= ctx->higher_idx; idx++) {
+    fprintf(fout, "%f %f\n", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]));
+  }
+  fclose(fout);
 
 }
 
