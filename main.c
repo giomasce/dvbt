@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "ofdm.h"
+#include "tps.h"
 
 int main() {
 
@@ -35,6 +36,7 @@ int main() {
   sw_advance(sw, min_offset);
 
   i = 0;
+  TPSDecoder *tps_dec = tps_decoder_new();
   while (true) {
     sw_reserve_front(sw, 2 * ctx->full_len);
     sw_reserve_back(sw, 2 * ctx->full_len);
@@ -43,10 +45,20 @@ int main() {
     sw_advance(sw, ((int) round(shift)) + ctx->full_len);
     ofdm_context_shift_freqs(ctx, shift);
     //ofdm_context_dump_freqs(ctx, "dump");
-    ofdm_context_read_tps_bit(ctx);
-    if (i % 1000 == 0) {
+    bool tps_bit = ofdm_context_read_tps_bit(ctx);
+    bool tps_finished = tps_decoder_push_bit(tps_dec, tps_bit);
+
+    if (i % 1 == 0) {
       fprintf(stderr, "> %d %d %f\n", i, sw->total_offset, shift);
     }
+    if (tps_finished) {
+      fprintf(stderr, "TPS finished!\n");
+      fprintf(stderr, "Cell ID: %d\n", tps_dec->data.cell_id_byte);
+      fprintf(stderr, "Transmission mode: %d\n", tps_dec->data.trans_mode);
+      fprintf(stderr, "TPS length: %d\n", tps_dec->data.len);
+      fprintf(stderr, "Frame num: %d\n", tps_dec->data.frame_num);
+    }
+
     i++;
   }
 

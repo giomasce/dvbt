@@ -5,13 +5,7 @@
 
 #include "ofdm.h"
 
-#include "data.h"
 #include "prbs.h"
-
-const double PACKET_TIME[] = { 224e-6, 896e-6 };
-const uint32_t CARRIER_NUM[] = { 1705, 6817 };
-const uint32_t MAX_CARRIER_NUM = 6817;
-const double GUARD_INT_RATIO[] = { 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4 };
 
 OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans_mode, GuardInt guard_int, SlidingWindow *sw) {
 
@@ -164,7 +158,7 @@ void ofdm_context_shift_freqs(OFDMContext *ctx, double samples) {
 
 }
 
-uint8_t ofdm_context_read_tps_bit(OFDMContext *ctx) {
+bool ofdm_context_read_tps_bit(OFDMContext *ctx) {
 
   uint16_t votes[2];
   votes[0] = 0;

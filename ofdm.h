@@ -8,18 +8,7 @@
 #include <fftw3.h>
 
 #include "util.h"
-
-typedef enum {
-  TRANS_MODE_2K = 0x0,
-  TRANS_MODE_8K = 0x1
-} TransMode;
-
-typedef enum {
-  GUARD_INT_1_32 = 0x0,
-  GUARD_INT_1_16 = 0x1,
-  GUARD_INT_1_8 = 0x2,
-  GUARD_INT_1_4 = 0x3
-} GuardInt;
+#include "data.h"
 
 typedef struct {
   double samp_freq;
@@ -42,17 +31,12 @@ typedef struct {
   SlidingWindow *sw;
 } OFDMContext;
 
-extern const double PACKET_TIME[];
-extern const uint32_t CARRIER_NUM[];
-extern const uint32_t MAX_CARRIER_NUM;
-extern const double GUARD_INT_RATIO[];
-
 OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans_mode, GuardInt guard_int, SlidingWindow *sw);
 void ofdm_context_destroy(OFDMContext *ctx);
 void ofdm_context_decode_symbol(OFDMContext *ctx, size_t offset);
 double ofdm_context_optimize_offset(OFDMContext *ctx, double half_width, double *min_value);
 void ofdm_context_shift_freqs(OFDMContext *ctx, double samples);
-uint8_t ofdm_context_read_tps_bit(OFDMContext *ctx);
+bool ofdm_context_read_tps_bit(OFDMContext *ctx);
 void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename);
 
 uint8_t *pilot_sequence;

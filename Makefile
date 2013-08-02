@@ -2,15 +2,17 @@
 all: dvbt streamer
 
 GCC = gcc
-CFLAGS = -g -O2 -std=gnu99 -Wall -pedantic
+CFLAGS = -g -O3 -std=gnu99 -Wall -pedantic
 LDFLAGS = -lfftw3 -lfftw3_threads -lm
-OBJECTS = main.o prbs.o util.o ofdm.o
+OBJECTS = main.o prbs.o util.o ofdm.o data.o tps.o
 
-main.o: ofdm.h
+main.o: ofdm.h tps.h
 
-ofdm.h: util.h
+ofdm.h: util.h data.h
 
-ofdm.o: data.h prbs.h
+ofdm.o: prbs.h
+
+tps.h: data.h
 
 %.h:
 	touch $@
