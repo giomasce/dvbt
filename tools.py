@@ -272,10 +272,13 @@ def read_from_file():
             line = fin.readline()
     return data
 
-def decode_symbol(data, offset):
+def decode_symbol(data, offset, all_freqs=False):
     sample = data[offset:offset + packet_len]
     freqs = fft(sample)
-    return freqs[lower_idx:higher_idx + 1]
+    if all_freqs:
+        return freqs
+    else:
+        return freqs[lower_idx:higher_idx + 1]
 
 def cofdm_encoder(symbols=100):
     data = []
@@ -509,6 +512,7 @@ def decode_stream():
         window.reserve_front(2 * (packet_len + guard_len))
         window.reserve_back(2 * (packet_len + guard_len))
         freqs = decode_symbol(window, 0)
+        all_freqs = decode_symbol(window, 0, all_freqs=True)
         shift, _ = finely_adjust_freqs(freqs)
         window.advance(int(round(shift)))
         window.advance(packet_len + guard_len)
@@ -516,9 +520,10 @@ def decode_stream():
 
         # Some debug information
         #print shift, window.total_offset
-        #clf()
+        clf()
         #scatter(map(lambda x: x.real, freqs), map(lambda x: x.imag, freqs))
-        #show()
+        plot(map(lambda x: abs(x)**2, all_freqs[10:]))
+        show()
 
         # Here we can work on the data
         tps_bit = decode_tps_bit(freqs)
