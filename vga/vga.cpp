@@ -96,7 +96,7 @@ inline const unsigned char *GetData(size_t request, size_t *num) {
 
 }
 
-void consume_data(size_t request) {
+inline void consume_data(size_t request) {
 
   while (request > 0) {
     size_t num;
@@ -160,7 +160,7 @@ void DisplayCallback() {
   assert(glGetError() == 0);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   assert(glGetError() == 0);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, modeline.vdisplay, modeline.hdisplay, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, modeline.vdisplay, modeline.hdisplay, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
   assert(glGetError() == 0);
   glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, 0);
   assert(glGetError() == 0);
@@ -189,12 +189,14 @@ void DisplayCallback() {
     memcpy(&prev_ts, &first_ts, sizeof(struct timespec));
   } else {
     clock_gettime(CLOCK_MONOTONIC, &ts);
+    double first_diff = (ts.tv_sec - first_ts.tv_sec) + 1e-9 * (ts.tv_nsec - first_ts.tv_nsec);
+    double est_num = first_diff * fps;
     double diff = (ts.tv_sec - prev_ts.tv_sec) + 1e-9 * (ts.tv_nsec - prev_ts.tv_nsec);
     double var = fps * diff - 1.0;
     const char *sig = "";
     if (var < -0.1) sig = "-";
     if (var > 0.1) sig = "+";
-    printf("%d %f %f %s\n", frames, diff, var, sig);
+    printf("%d %f %f %f %s\n", frames, est_num, diff, var, sig);
     memcpy(&prev_ts, &ts, sizeof(struct timespec));
   }
   frames++;
