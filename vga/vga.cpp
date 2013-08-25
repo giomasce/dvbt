@@ -1,39 +1,19 @@
-/*
-
-	Copyright 2010 Etay Meiri
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    Tutorial 01 - Create a window
-*/
-
-using namespace std;
 
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
 #include <math.h>
 #include <algorithm>
+#include <assert.h>
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86vmode.h>
 
 #include <GL/glew.h>
 #include <GL/glxew.h>
 #include <GL/freeglut.h>
+
+using namespace std;
 
 int frames = 0;
 
@@ -68,10 +48,10 @@ size_t data_buf_len;
 void init_data_buf_sine() {
 
   data_buf_len = samp_freq / signal_freq;
-  printf("data_buf_len: %lu\n", data_buf_len);
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
   data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
   for (size_t i = 0; i < data_buf_len; i++) {
-    data_buf[i] = (unsigned char) round(255.0 * 0.5 * (1.0 + sin((double) (2 * M_PI * i) / data_buf_len)));
+    data_buf[i] = (unsigned char) round(255.0 * 0.5 * (1.0 + sin(2.0 * M_PI * ((double) i) / ((double) data_buf_len))));
   }
 
 }
@@ -99,7 +79,7 @@ void init_data_buf_file() {
     data_buf[data_buf_len++] = tmp;
   }
   fclose(fin);
-  printf("data_buf_len: %lu\n", data_buf_len);
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
 
 }
 
@@ -127,6 +107,9 @@ void consume_data(size_t request) {
 }
 
 unsigned char *screen = NULL;
+unsigned int pbo_buf[2];
+size_t pbo_idx = 0;
+unsigned int texture;
 
 void DisplayCallback() {
 
@@ -134,15 +117,9 @@ void DisplayCallback() {
   glLoadIdentity();
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
-  gluOrtho2D(0, modeline.hdisplay, 0, modeline.vdisplay);
+  //gluOrtho2D(0, modeline.hdisplay, 0, modeline.vdisplay);
 
-  /*if (frames % 2) {
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-  } else {
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    }*/
-
-  //glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT);
 
   const unsigned char *buf;
   for (int line = 0; line < modeline.vdisplay; line++) {
@@ -151,14 +128,54 @@ void DisplayCallback() {
       //printf("  %d %d\n", pos, line);
       buf = GetData(modeline.hdisplay - pos, &num);
       memcpy(screen + pos + line * modeline.hdisplay, buf, num);
-      //glRasterPos2i(pos, line);
-      //glDrawPixels(num, 1, GL_RED, GL_UNSIGNED_BYTE, buf);
+      /*int base = pos + line * modeline.hdisplay;
+      for (int i = 0; i < num; i++) {
+        screen[base + i] = buf[i];
+        }*/
     }
     consume_data(modeline.htotal - modeline.hdisplay);
   }
   consume_data(modeline.htotal * (modeline.vtotal - modeline.vdisplay));
-  glRasterPos2i(0, 0);
-  glDrawPixels(modeline.hdisplay, modeline.vdisplay, GL_RED, GL_UNSIGNED_BYTE, screen);
+
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER, pbo_buf[pbo_idx]);
+  assert(glGetError() == 0);
+  glBufferSubDataARB(GL_PIXEL_PACK_BUFFER, 0, modeline.vdisplay * modeline.hdisplay * sizeof(unsigned char), screen);
+  assert(glGetError() == 0);
+  glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
+  assert(glGetError() == 0);
+  //screen = (unsigned char*) glMapBufferARB(GL_PIXEL_PACK_BUFFER, GL_WRITE_ONLY);
+  //assert(glGetError() == 0);
+  //assert(screen);
+
+  // Apparently we don't really need two PBOs
+  //pbo_idx = (pbo_idx + 1) % 2;
+
+  glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, pbo_buf[pbo_idx]);
+  assert(glGetError() == 0);
+  //glRasterPos2i(0, 0);
+  //assert(glGetError() == 0);
+  //glDrawPixels(modeline.hdisplay, modeline.vdisplay, GL_RED, GL_UNSIGNED_BYTE, 0);
+  //assert(glGetError() == 0);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  assert(glGetError() == 0);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  assert(glGetError() == 0);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, modeline.vdisplay, modeline.hdisplay, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
+  assert(glGetError() == 0);
+  glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, 0);
+  assert(glGetError() == 0);
+
+  glBegin(GL_QUADS);
+  glTexCoord2d(-1.0, -1.0);
+  glVertex2d(-1.0, -1.0);
+  glTexCoord2d(1.0, -1.0);
+  glVertex2d(1.0, -1.0);
+  glTexCoord2d(1.0, 1.0);
+  glVertex2d(1.0, 1.0);
+  glTexCoord2d(-1.0, 1.0);
+  glVertex2d(-1.0, 1.0);
+  glEnd();
+  assert(glGetError() == 0);
 
   //glFinish();
   glutSwapBuffers();
@@ -197,8 +214,22 @@ void ReshapeCallback(int w, int h) {
 
   printf("(%d, %d)\n", w, h);
   glViewport(0, 0, w, h);
+
   free(screen);
   screen = (unsigned char*) malloc(w * h * sizeof(unsigned char));
+
+  glDeleteBuffersARB(2, pbo_buf);
+  assert(glGetError() == 0);
+  glGenBuffersARB(2, pbo_buf);
+  assert(glGetError() == 0);
+  for (size_t idx = 0; idx < 2; idx++) {
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER, pbo_buf[idx]);
+    assert(glGetError() == 0);
+    glBufferDataARB(GL_PIXEL_PACK_BUFFER, w * h * sizeof(unsigned char), NULL, GL_STREAM_DRAW);
+    assert(glGetError() == 0);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
+    assert(glGetError() == 0);
+  }
 
 }
 
@@ -248,6 +279,16 @@ int main(int argc, char** argv) {
   printf("%f %f %f\n", samp_freq, screen_time, fps);
 
   init_data_buf();
+
+  glGenBuffersARB(2, pbo_buf);
+  assert(glGetError() == 0);
+  glGenTextures(1, &texture);
+  assert(glGetError() == 0);
+  glEnable(GL_TEXTURE_2D);
+  assert(glGetError() == 0);
+
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  assert(glGetError() == 0);
 
   glutMainLoop();
 
