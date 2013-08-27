@@ -196,7 +196,7 @@ void DisplayCallback() {
     const char *sig = "";
     if (var < -0.1) sig = "-";
     if (var > 0.1) sig = "+";
-    printf("%d %f %f %f %s\n", frames, est_num, diff, var, sig);
+    printf("%d %f %f %f %f %s\n", frames, est_num, est_num - frames, diff, var, sig);
     memcpy(&prev_ts, &ts, sizeof(struct timespec));
   }
   frames++;
