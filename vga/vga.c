@@ -3,8 +3,8 @@
 #include <time.h>
 #include <string.h>
 #include <math.h>
-#include <algorithm>
 #include <assert.h>
+#include <stdbool.h>
 
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86vmode.h>
@@ -13,8 +13,6 @@
 #include <GL/glxew.h>
 #include <GL/freeglut.h>
 
-using namespace std;
-
 int frames = 0;
 
 int first = 1;
@@ -22,6 +20,12 @@ struct timespec first_ts, ts, prev_ts;
 
 double samp_freq, screen_time, fps;
 double signal_freq = 60.0;
+
+inline static size_t min(size_t x, size_t y) {
+
+  return x ? x < y : y;
+
+}
 
 int dotclock;
 XF86VidModeModeLine modeline;
@@ -85,7 +89,7 @@ void init_data_buf_file() {
 
 #define init_data_buf init_data_buf_file
 
-inline const unsigned char *GetData(size_t request, size_t *num) {
+inline static const unsigned char *GetData(size_t request, size_t *num) {
 
   *num = min(request, data_buf_len - data_pos);
   unsigned char *res = data_buf + data_pos;
@@ -96,7 +100,7 @@ inline const unsigned char *GetData(size_t request, size_t *num) {
 
 }
 
-inline void consume_data(size_t request) {
+inline static void consume_data(size_t request) {
 
   while (request > 0) {
     size_t num;
