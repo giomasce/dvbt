@@ -87,7 +87,35 @@ void init_data_buf_file() {
 
 }
 
-#define init_data_buf init_data_buf_file
+void init_data_buf_sawtooth() {
+
+  data_buf_len = modeline.htotal;
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
+  data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
+  for (size_t i = 0; i < data_buf_len; i++) {
+    data_buf[i] = 255 * i / data_buf_len;
+  }
+
+}
+
+#define init_data_buf init_data_buf_sine
+
+void write_screen_to_pgm(unsigned char *screen) {
+
+  static unsigned int screen_num = 0;
+  char filename[128];
+  FILE *file;
+
+  sprintf(filename, "frame_%05d.pgm", screen_num++);
+  file = fopen(filename, "w");
+  fprintf(file, "P5\n");
+  fprintf(file, "# Comment\n");
+  fprintf(file, "%d %d\n", modeline.hdisplay, modeline.vdisplay);
+  fprintf(file, "255\n");
+  fwrite(screen, 1, modeline.hdisplay * modeline.vdisplay, file);
+  fclose(file);
+
+}
 
 inline static const unsigned char *GetData(size_t request, size_t *num) {
 
@@ -140,6 +168,7 @@ void DisplayCallback() {
     consume_data(modeline.htotal - modeline.hdisplay);
   }
   consume_data(modeline.htotal * (modeline.vtotal - modeline.vdisplay));
+  //write_screen_to_pgm(screen);
 
   glBindBufferARB(GL_PIXEL_PACK_BUFFER, pbo_buf[pbo_idx]);
   assert(glGetError() == 0);
@@ -170,13 +199,13 @@ void DisplayCallback() {
   assert(glGetError() == 0);
 
   glBegin(GL_QUADS);
-  glTexCoord2d(-1.0, -1.0);
+  glTexCoord2d(0.0, 1.0);
   glVertex2d(-1.0, -1.0);
-  glTexCoord2d(1.0, -1.0);
-  glVertex2d(1.0, -1.0);
   glTexCoord2d(1.0, 1.0);
+  glVertex2d(1.0, -1.0);
+  glTexCoord2d(1.0, 0.0);
   glVertex2d(1.0, 1.0);
-  glTexCoord2d(-1.0, 1.0);
+  glTexCoord2d(0.0, 0.0);
   glVertex2d(-1.0, 1.0);
   glEnd();
   assert(glGetError() == 0);
