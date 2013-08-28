@@ -98,7 +98,7 @@ void init_data_buf_sawtooth() {
 
 }
 
-#define init_data_buf init_data_buf_sine
+#define init_data_buf init_data_buf_sawtooth
 
 void write_screen_to_pgm(unsigned char *screen) {
 
@@ -153,6 +153,12 @@ void DisplayCallback() {
 
   glClear(GL_COLOR_BUFFER_BIT);
 
+  // Maybe we're not ready yet...
+  if (screen == NULL) {
+    glutPostRedisplay();
+    return;
+  }
+
   const unsigned char *buf;
   for (int line = 0; line < modeline.vdisplay; line++) {
     size_t num;
@@ -162,7 +168,9 @@ void DisplayCallback() {
       memcpy(screen + pos + line * modeline.hdisplay, buf, num);
       /*int base = pos + line * modeline.hdisplay;
       for (int i = 0; i < num; i++) {
-        screen[base + i] = buf[i];
+        unsigned char tmp;
+        tmp = buf[i];
+        screen[base + i] = tmp;
         }*/
     }
     consume_data(modeline.htotal - modeline.hdisplay);
@@ -233,6 +241,7 @@ void DisplayCallback() {
     memcpy(&prev_ts, &ts, sizeof(struct timespec));
   }
   frames++;
+
   glutPostRedisplay();
 
 }
@@ -247,23 +256,31 @@ void KeyboardCallback(unsigned char key, int x, int y) {
 
 void ReshapeCallback(int w, int h) {
 
-  printf("(%d, %d)\n", w, h);
-  glViewport(0, 0, w, h);
+  if (w == modeline.hdisplay && h == modeline.vdisplay) {
 
-  free(screen);
-  screen = (unsigned char*) malloc(w * h * sizeof(unsigned char));
+    printf("(%d, %d) accepted\n", w, h);
+    glViewport(0, 0, w, h);
+    screen = (unsigned char*) realloc(screen, w * h * sizeof(unsigned char));
 
-  glDeleteBuffersARB(2, pbo_buf);
-  assert(glGetError() == 0);
-  glGenBuffersARB(2, pbo_buf);
-  assert(glGetError() == 0);
-  for (size_t idx = 0; idx < 2; idx++) {
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER, pbo_buf[idx]);
+    glDeleteBuffersARB(2, pbo_buf);
     assert(glGetError() == 0);
-    glBufferDataARB(GL_PIXEL_PACK_BUFFER, w * h * sizeof(unsigned char), NULL, GL_STREAM_DRAW);
+    glGenBuffersARB(2, pbo_buf);
     assert(glGetError() == 0);
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
-    assert(glGetError() == 0);
+    for (size_t idx = 0; idx < 2; idx++) {
+      glBindBufferARB(GL_PIXEL_PACK_BUFFER, pbo_buf[idx]);
+      assert(glGetError() == 0);
+      glBufferDataARB(GL_PIXEL_PACK_BUFFER, w * h * sizeof(unsigned char), NULL, GL_STREAM_DRAW);
+      assert(glGetError() == 0);
+      glBindBufferARB(GL_PIXEL_PACK_BUFFER, 0);
+      assert(glGetError() == 0);
+    }
+
+  } else {
+
+    printf("(%d, %d) NOT accepted!\n", w, h);
+    free(screen);
+    screen = NULL;
+
   }
 
 }
