@@ -23,7 +23,7 @@ double signal_freq = 60.0;
 
 inline static size_t min(size_t x, size_t y) {
 
-  return x ? x < y : y;
+  return (x < y) ? x : y;
 
 }
 
