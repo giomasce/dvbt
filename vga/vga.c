@@ -89,7 +89,7 @@ void init_data_buf_file() {
 
 void init_data_buf_sawtooth() {
 
-  data_buf_len = modeline.htotal;
+  data_buf_len = samp_freq / signal_freq;
   printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
   data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
   for (size_t i = 0; i < data_buf_len; i++) {
@@ -201,7 +201,9 @@ void DisplayCallback() {
   assert(glGetError() == 0);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   assert(glGetError() == 0);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, modeline.vdisplay, modeline.hdisplay, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
+  /* Using GL_RED instead of GL_RGB appears to be faster, but not
+     supported on some cards. */
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, modeline.hdisplay, modeline.vdisplay, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
   assert(glGetError() == 0);
   glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, 0);
   assert(glGetError() == 0);
