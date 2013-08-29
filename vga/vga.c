@@ -98,7 +98,19 @@ void init_data_buf_sawtooth() {
 
 }
 
-#define init_data_buf init_data_buf_sawtooth
+void init_data_buf_triple() {
+
+  size_t reps = 6;
+  data_buf_len = modeline.htotal * modeline.vtotal * reps;
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
+  data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
+  for (size_t i = 0; i < reps; i++) {
+    memset(data_buf + modeline.htotal * modeline.vtotal * i, 255 * i / (reps-1), modeline.htotal * modeline.vtotal);
+  }
+
+}
+
+#define init_data_buf init_data_buf_triple
 
 void write_screen_to_pgm(unsigned char *screen) {
 
