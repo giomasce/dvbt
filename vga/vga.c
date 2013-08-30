@@ -19,7 +19,7 @@ int first = 1;
 struct timespec first_ts, ts, prev_ts;
 
 double samp_freq, screen_time, fps;
-double signal_freq = 60.0;
+double signal_freq = 30.0;
 
 inline static size_t min(size_t x, size_t y) {
 
@@ -110,7 +110,7 @@ void init_data_buf_triple() {
 
 }
 
-#define init_data_buf init_data_buf_triple
+#define init_data_buf init_data_buf_file
 
 void write_screen_to_pgm(unsigned char *screen) {
 
