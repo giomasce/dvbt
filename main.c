@@ -12,8 +12,10 @@ int main() {
 
   //FILE *fin = fopen("data", "r");
 
+  double samp_freq = 76.5e6;
+  double mod_freq = 5760.0 / 224e-6;
   SlidingWindow *sw = sw_new(stdin);
-  OFDMContext *ctx = ofdm_context_new(76.5e6, 5760.0 / 224e-6, TRANS_MODE_2K, GUARD_INT_1_32, sw);
+  OFDMContext *ctx = ofdm_context_new(samp_freq, mod_freq, TRANS_MODE_2K, GUARD_INT_1_32, sw);
 
   sw_advance(sw, 5000);
   sw_reserve_front(sw, 3 * ctx->full_len + 5000);
@@ -49,7 +51,7 @@ int main() {
     bool tps_finished = tps_decoder_push_bit(tps_dec, tps_bit);
 
     if (i % 1 == 0) {
-      fprintf(stderr, "> %d %d %f\n", i, sw->total_offset, shift);
+      fprintf(stderr, "> %d %d %f %f\n", i, sw->total_offset, sw->total_offset / samp_freq, shift);
     }
     if (tps_finished) {
       fprintf(stderr, "TPS finished!\n");
