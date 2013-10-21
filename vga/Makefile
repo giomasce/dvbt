@@ -1,5 +1,5 @@
 
-all: vga vga_simple modeline upconverter
+all: vga vga_simple modeline upconverter generator
 
 vga: vga.c
 	gcc -O3 -Wall -pedantic -std=gnu99 -o vga -lm -lGLU -lGL -lglut -lGLEW -lX11 -lXxf86vm vga.c
@@ -13,5 +13,8 @@ modeline: modeline.c
 upconverter: upconverter.c
 	gcc -O3 -Wall -pedantic -std=gnu99 -o upconverter -lm upconverter.c
 
+generator: generator.c
+	gcc -O3 -Wall -pedantic -std=gnu99 -o generator -lm generator.c
+
 clean:
-	rm -f vga vga_simple modeline upconverter
+	rm -f vga vga_simple modeline upconverter generator
