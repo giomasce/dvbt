@@ -47,8 +47,10 @@ int main(int argc, char **argv) {
     }
     double offset = ((double) in_time) - target_in_time;
     DATA out = in1 * offset + in2 * (1.0 - offset);
+    unsigned char out_char = (unsigned char) 255.0 * out;
     out *= cos(2 * M_PI * ((double) out_time) / output_freq * up_freq);
-    res = fwrite(&out, sizeof(DATA), 1, stdout);
+    //res = fwrite(&out, sizeof(DATA), 1, stdout);
+    res = fwrite(&out_char, sizeof(unsigned char), 1, stdout);
     if (res == 0) goto end;
   }
 

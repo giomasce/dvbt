@@ -129,7 +129,7 @@ void write_screen_to_pgm(unsigned char *screen) {
 
 }
 
-inline static const unsigned char *GetData(size_t request, size_t *num) {
+inline static const unsigned char *get_data_from_buffer(size_t request, size_t *num) {
 
   *num = min(request, data_buf_len - data_pos);
   unsigned char *res = data_buf + data_pos;
@@ -139,6 +139,21 @@ inline static const unsigned char *GetData(size_t request, size_t *num) {
   return res;
 
 }
+
+#define STDIN_BUF_LEN 65536
+inline static const unsigned char *get_data_from_stdin(size_t request, size_t *num) {
+
+  static unsigned char buf[STDIN_BUF_LEN];
+  *num = min(request, STDIN_BUF_LEN);
+  *num = fread(buf, 1, *num, stdin);
+
+  if (*num == 0) exit(0);
+
+  return buf;
+
+}
+
+#define GetData get_data_from_stdin
 
 inline static void consume_data(size_t request) {
 
