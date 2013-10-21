@@ -343,6 +343,7 @@ int main(int argc, char** argv) {
   fps = samp_freq / modeline.htotal / modeline.vtotal;
   screen_time = 1.0 / fps;
   printf("%f %f %f\n", samp_freq, screen_time, fps);
+  printf("Useful time: %f\n", ((double) modeline.hdisplay * modeline.vdisplay) / ((double) modeline.htotal * modeline.vtotal));
 
   init_data_buf();
 
