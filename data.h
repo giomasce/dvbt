@@ -12,14 +12,16 @@ typedef enum{
 typedef enum {
   CONSTELLATION_QPSK = 0x0,
   CONSTELLATION_16_QAM = 0x1,
-  CONSTELLATION_64_QAM = 0x2
+  CONSTELLATION_64_QAM = 0x2,
+  CONSTELLATION_NUM
 } Constellation;
 
 typedef enum {
   HIERARCHY_NON_HIERARCHICAL = 0x0,
   HIERARCHY_ALPHA_1 = 0x1,
   HIERARCHY_ALPHA_2 = 0x2,
-  HIERARCHY_ALPHA_4 = 0x3
+  HIERARCHY_ALPHA_4 = 0x3,
+  HIERARCHY_NUM
 } Hierarchy;
 
 typedef enum {
@@ -42,6 +44,12 @@ typedef enum {
   GUARD_INT_1_4 = 0x3
 } GuardInt;
 
+typedef enum {
+  BANDWIDTH_8MHZ,
+  BANDWIDTH_7MHZ,
+  BANDWIDTH_6MHZ
+} Bandwidth;
+
 extern const uint16_t CONTINUAL_PILOTS_2K[];
 extern const uint16_t CONTINUAL_PILOTS_8K[];
 extern const uint16_t *CONTINUAL_PILOTS[];
@@ -55,6 +63,13 @@ extern const double PACKET_TIME[];
 extern const uint32_t CARRIER_NUM[];
 extern const uint32_t MAX_CARRIER_NUM;
 extern const double GUARD_INT_RATIO[];
+extern const double ENERGY_NORMALIZATION[CONSTELLATION_NUM][HIERARCHY_NUM];
+
+extern const uint8_t POINTS_PER_SEMIAXIS[CONSTELLATION_NUM];
+#define MAX_POINTS_PER_SEMIAXIS 4
+extern const uint8_t START_COORDINATE[HIERARCHY_NUM];
+extern const uint8_t BIT_LENGTH[CONSTELLATION_NUM];
+extern const uint8_t GRAY_MAP[CONSTELLATION_NUM][MAX_POINTS_PER_SEMIAXIS];
 
 extern const uint64_t TPS_SYNC_WORD_ODD;
 extern const uint64_t TPS_SYNC_WORD_EVEN;

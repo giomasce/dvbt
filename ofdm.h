@@ -15,6 +15,9 @@ typedef struct {
   double mod_freq;
   TransMode trans_mode;
   GuardInt guard_int;
+  Constellation constellation;
+  Hierarchy hierarchy;
+
   double packet_time;
   double guard_time;
   uint32_t carrier_num;
@@ -24,10 +27,16 @@ typedef struct {
   uint32_t central_idx;
   uint32_t lower_idx;
   uint32_t higher_idx;
+
+  uint8_t frame_offset;
+
   double *signal;
   complex *freqs;
+  uint8_t *bits;
+
   fftw_plan fft_forward_plan;
   fftw_plan fft_backward_plan;
+
   SlidingWindow *sw;
 } OFDMContext;
 
@@ -38,6 +47,8 @@ double ofdm_context_optimize_offset(OFDMContext *ctx, double half_width, double 
 void ofdm_context_shift_freqs(OFDMContext *ctx, double samples);
 bool ofdm_context_read_tps_bit(OFDMContext *ctx);
 void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename);
+void ofdm_context_normalize_energy(OFDMContext *ctx);
+void ofdm_context_decode_bits(OFDMContext *ctx);
 
 uint8_t *pilot_sequence;
 

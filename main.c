@@ -42,10 +42,13 @@ int main() {
   while (true) {
     sw_reserve_front(sw, 2 * ctx->full_len);
     sw_reserve_back(sw, 2 * ctx->full_len);
+    ctx->frame_offset++;
     ofdm_context_decode_symbol(ctx, 0);
     shift = ofdm_context_optimize_offset(ctx, 30.0, NULL);
     sw_advance(sw, ((int) round(shift)) + ctx->full_len);
     ofdm_context_shift_freqs(ctx, shift);
+    ofdm_context_normalize_energy(ctx);
+    ofdm_context_decode_bits(ctx);
     //ofdm_context_dump_freqs(ctx, "dump");
     bool tps_bit = ofdm_context_read_tps_bit(ctx);
     bool tps_finished = tps_decoder_push_bit(tps_dec, tps_bit);
@@ -59,6 +62,9 @@ int main() {
       fprintf(stderr, "Transmission mode: %d\n", tps_dec->data.trans_mode);
       fprintf(stderr, "TPS length: %d\n", tps_dec->data.len);
       fprintf(stderr, "Frame num: %d\n", tps_dec->data.frame_num);
+      ctx->frame_offset = -1;
+      ctx->constellation = tps_dec->data.constellation;
+      ctx->hierarchy = tps_dec->data.hierarchy;
     }
 
     i++;

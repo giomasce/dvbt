@@ -1,6 +1,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <math.h>
 
 #include "data.h"
 
@@ -91,3 +92,22 @@ const double GUARD_INT_RATIO[] = { 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4 };
 
 const uint64_t TPS_SYNC_WORD_ODD = 0x35ee;
 const uint64_t TPS_SYNC_WORD_EVEN = 0xca11;
+
+/* Morally: */
+/* const double ENERGY_NORMALIZATION[CONSTELLATION_NUM][HIERARCHY_NUM] = */
+/*   { { 1.0 / sqrt(2.0) }, */
+/*     { 1.0 / sqrt(10.0), 1.0 / sqrt(10.0), 1.0 / sqrt(20.0), 1.0 / sqrt(52.0) }, */
+/*     { 1.0 / sqrt(42.0), 1.0 / sqrt(42.0), 1.0 / sqrt(60.0), 1.0 / sqrt(108.0) } }; */
+
+const double ENERGY_NORMALIZATION[CONSTELLATION_NUM][HIERARCHY_NUM] =
+  { { .70710678118654752440 },
+    { .31622776601683793320, .31622776601683793320, .22360679774997896964, .13867504905630728050 },
+    { .15430334996209191026, .15430334996209191026, .12909944487358056283, .09622504486493762741 } };
+
+const uint8_t POINTS_PER_SEMIAXIS[CONSTELLATION_NUM] = { 1, 2, 4 };
+const uint8_t START_COORDINATE[HIERARCHY_NUM] = { 1, 1, 2, 4 };
+const uint8_t BIT_LENGTH[CONSTELLATION_NUM] = { 2, 4, 6 };
+const uint8_t GRAY_MAP[CONSTELLATION_NUM][MAX_POINTS_PER_SEMIAXIS] =
+  { { 0 },
+    { 1, 0 },
+    { 2, 3, 1, 0 } };

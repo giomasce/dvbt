@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <complex.h>
 
 // Macros for bitvectors
 #define bv_get(bv, pos) ((bv)[(pos)/8] & (1 << ((pos)%8)))
@@ -40,5 +41,7 @@ void heap_destroy(Heap *heap);
 void heap_push(Heap *heap, double weight, void *ptr);
 void heap_top(Heap *heap, double *weight, void **ptr);
 void heap_pop(Heap *heap);
+
+double csqabs(complex x);
 
 #endif
