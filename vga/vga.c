@@ -5,6 +5,11 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86vmode.h>
@@ -153,7 +158,21 @@ inline static const unsigned char *get_data_from_stdin(size_t request, size_t *n
 
 }
 
-#define GetData get_data_from_stdin
+#define SOCKET_BUF_LEN 65536
+int sock_fd;
+inline static const unsigned char *get_data_from_socket(size_t request, size_t *num) {
+
+  static unsigned char buf[SOCKET_BUF_LEN];
+  *num = min(request, SOCKET_BUF_LEN);
+  *num = read(sock_fd, buf, *num);
+
+  if (*num <= 0) exit(0);
+
+  return buf;
+
+}
+
+#define GetData get_data_from_socket
 
 inline static void consume_data(size_t request) {
 
@@ -371,6 +390,21 @@ int main(int argc, char** argv) {
 
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   assert(glGetError() == 0);
+
+  // Create socket and accept a connection
+  int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+  assert(sock_fd >= 0);
+  struct sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = INADDR_ANY;
+  addr.sin_port = htons(2204);
+  int res3;
+  res3 = bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr));
+  assert(res3 == 0);
+  res3 = listen(listen_fd, 1);
+  assert(res3 == 0);
+  sock_fd = accept(listen_fd, NULL, NULL);
+  assert(sock_fd >= 0);
 
   glutMainLoop();
 
