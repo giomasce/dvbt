@@ -39,6 +39,7 @@ int main() {
 
   i = 0;
   TPSDecoder *tps_dec = tps_decoder_new();
+  bool locked = false;
   while (true) {
     sw_reserve_front(sw, 2 * ctx->full_len);
     sw_reserve_back(sw, 2 * ctx->full_len);
@@ -47,9 +48,12 @@ int main() {
     shift = ofdm_context_optimize_offset(ctx, 30.0, NULL);
     sw_advance(sw, ((int) round(shift)) + ctx->full_len);
     ofdm_context_shift_freqs(ctx, shift);
-    ofdm_context_normalize_energy(ctx);
-    ofdm_context_decode_bits(ctx);
-    //ofdm_context_dump_freqs(ctx, "dump");
+    if (locked) {
+      ofdm_context_normalize_energy(ctx);
+      ofdm_context_decode_bits(ctx);
+      ofdm_context_dump_freqs(ctx, "dump");
+      exit(1);
+    }
     bool tps_bit = ofdm_context_read_tps_bit(ctx);
     bool tps_finished = tps_decoder_push_bit(tps_dec, tps_bit);
 
@@ -65,6 +69,7 @@ int main() {
       ctx->frame_offset = -1;
       ctx->constellation = tps_dec->data.constellation;
       ctx->hierarchy = tps_dec->data.hierarchy;
+      locked = true;
     }
 
     i++;

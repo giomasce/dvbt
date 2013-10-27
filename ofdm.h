@@ -34,6 +34,9 @@ typedef struct {
   complex *freqs;
   uint8_t *bits;
 
+  int32_t *carrier_map;
+  int32_t *carrier_rev_map;
+
   fftw_plan fft_forward_plan;
   fftw_plan fft_backward_plan;
 

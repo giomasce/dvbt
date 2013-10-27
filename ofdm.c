@@ -37,6 +37,9 @@ OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans
   ctx->freqs = fftw_malloc(sizeof(double complex) * ((ctx->packet_len + 1) / 2));
   ctx->bits = malloc(sizeof(uint8_t) * USEFUL_CARRIERS_NUM[ctx->trans_mode]);
 
+  ctx->carrier_map = malloc(sizeof(int32_t) * ctx->carrier_num);
+  ctx->carrier_rev_map = malloc(sizeof(int32_t) * USEFUL_CARRIERS_NUM[ctx->trans_mode]);
+
   unsigned int flags = FFTW_MEASURE | FFTW_DESTROY_INPUT;
   flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
   ctx->fft_forward_plan = fftw_plan_dft_r2c_1d(ctx->packet_len, ctx->signal, ctx->freqs, flags);
@@ -53,6 +56,8 @@ void ofdm_context_destroy(OFDMContext *ctx) {
   fftw_free(ctx->signal);
   fftw_free(ctx->freqs);
   free(ctx->bits);
+  free(ctx->carrier_map);
+  free(ctx->carrier_rev_map);
   fftw_destroy_plan(ctx->fft_forward_plan);
   fftw_destroy_plan(ctx->fft_backward_plan);
   free(ctx);
@@ -182,21 +187,33 @@ bool ofdm_context_read_tps_bit(OFDMContext *ctx) {
 
 }
 
+void print_bin(FILE *fout, uint8_t x, Constellation c) {
+
+  int8_t i;
+  for (i = BIT_LENGTH[c]-1; i >= 0; i--) {
+    fprintf(fout, (x >> i) & 1 ? "1" : "0");
+  }
+
+}
+
 void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename) {
 
   FILE *fout = fopen(filename, "w");
   int idx;
   for (idx = ctx->lower_idx; idx <= ctx->higher_idx; idx++) {
-    fprintf(fout, "%f %f\n", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]));
+    fprintf(fout, "%f %f (%f) -> (%d)", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]), csqabs(ctx->freqs[idx]), ctx->carrier_map[idx-ctx->lower_idx]);
+    if (ctx->carrier_map[idx-ctx->lower_idx] >= 0) {
+      fprintf(fout, " ");
+      print_bin(fout, ctx->bits[ctx->carrier_map[idx-ctx->lower_idx]], CONSTELLATION_16_QAM);
+    }
+    fprintf(fout, "\n");
   }
   fclose(fout);
 
 }
 
-/* A better approach would be normalize every subcarrier only taking
-   care of the pilots near it, in order to compensate for different
-   attenuation on different parts of the spectrum. */
-void ofdm_context_normalize_energy(OFDMContext *ctx) {
+/* Energy normalization computer on the global average energy. */
+void ofdm_context_normalize_energy_globally(OFDMContext *ctx) {
 
   /* Compute average energy */
   size_t i;
@@ -207,13 +224,39 @@ void ofdm_context_normalize_energy(OFDMContext *ctx) {
     energy += csqabs(ctx->freqs[idx]);
   }
   energy /= CONTINUAL_PILOTS_LEN[ctx->trans_mode];
-  double factor = (3.0 / 4.0) / sqrt(energy);
+  double factor = (4.0 / 3.0) / sqrt(energy);
 
   /* Normalize everything */
   int idx;
   for (idx = ctx->lower_idx; idx <= ctx->higher_idx; idx++) {
     ctx->freqs[idx] *= factor;
   }
+
+}
+
+/* For every pair of consecutive continual pilots, use them to
+   normalize the energy of the carriers between them. */
+void ofdm_context_normalize_energy_adaptive(OFDMContext *ctx) {
+
+  size_t i, j;
+  double factor1, factor2;
+  factor1 = (4.0 / 3.0) / cabs(ctx->freqs[ctx->lower_idx + CONTINUAL_PILOTS[ctx->trans_mode][0]]);
+  for (i = 0; i < CONTINUAL_PILOTS_LEN[ctx->trans_mode]-1; i++) {
+    int idx1 = ctx->lower_idx + CONTINUAL_PILOTS[ctx->trans_mode][i];
+    int idx2 = ctx->lower_idx + CONTINUAL_PILOTS[ctx->trans_mode][i+1];
+    factor2 = (4.0 / 3.0) / cabs(ctx->freqs[idx2]);
+    for (j = idx1; j < idx2; j++) {
+      ctx->freqs[j] *= ((idx2 - j) * factor1 + (j - idx1) * factor2) / (idx2 - idx1);
+    }
+    factor1 = factor2;
+  }
+  ctx->freqs[ctx->lower_idx + CONTINUAL_PILOTS[ctx->trans_mode][i]] *= factor1;
+
+}
+
+void ofdm_context_normalize_energy(OFDMContext *ctx) {
+
+  ofdm_context_normalize_energy_adaptive(ctx);
 
 }
 
@@ -238,7 +281,7 @@ void build_pilot_sequence() {
 
 }
 
-inline uint8_t decode_semiaxis(double x, Constellation c, Hierarchy h) {
+uint8_t decode_semiaxis(double x, Constellation c, Hierarchy h) {
 
   /* Decode the offset */
   uint8_t res = ((uint8_t) floor((x - (START_COORDINATE[h] - 1)) / 2.0));
@@ -257,7 +300,7 @@ inline uint8_t decode_semiaxis(double x, Constellation c, Hierarchy h) {
 
 }
 
-inline uint8_t decode_bits(complex x, Constellation c, Hierarchy h) {
+uint8_t decode_bits(complex x, Constellation c, Hierarchy h) {
 
   x /= ENERGY_NORMALIZATION[c][h];
 
@@ -265,7 +308,7 @@ inline uint8_t decode_bits(complex x, Constellation c, Hierarchy h) {
   double i = cimag(x);
 
   /* Decode the first two, high priority bits */
-  uint8_t res = (((r < 0) << 1) + (i < 0)) << (BIT_LENGTH[c] - 2);
+  uint8_t res = (((r < 0.0) << 1) + (i < 0.0)) << (BIT_LENGTH[c] - 2);
 
   /* Decode the low priority bits (if they exist) */
   if (c != CONSTELLATION_QPSK) {
@@ -283,28 +326,30 @@ void ofdm_context_decode_bits(OFDMContext *ctx) {
   int carrier;
   size_t j = 0, k = 0, l = 0;
   for (carrier = 0; carrier < ctx->carrier_num; carrier++) {
-    bool good = true;
+    ctx->carrier_map[carrier] = 0;
 
     /* Check whether the carrier is being used as continual pilot */
     if ((j < CONTINUAL_PILOTS_LEN[ctx->trans_mode]) && (CONTINUAL_PILOTS[ctx->trans_mode][j] == carrier)) {
-      good = false;
+      ctx->carrier_map[carrier] -= 1;
       j++;
     }
 
     /* Check whether the carrier is being used as scattered pilot */
     if ((((carrier % 12) % 3) == 0) && (((carrier % 12) / 3) == (ctx->frame_offset % 4))) {
-      good = false;
+      ctx->carrier_map[carrier] -= 2;
     }
 
     /* Check whether the carrier is being used for TPS encoding */
     if ((k < TPS_CARRIERS_LEN[ctx->trans_mode]) && (TPS_CARRIERS[ctx->trans_mode][k] == carrier)) {
-      good = false;
+      ctx->carrier_map[carrier] -= 4;
       k++;
     }
 
-    if (good) {
+    if (ctx->carrier_map[carrier] == 0) {
       int idx = ctx->lower_idx + carrier;
       ctx->bits[l] = decode_bits(ctx->freqs[idx], ctx->constellation, ctx->hierarchy);
+      ctx->carrier_map[carrier] = l;
+      ctx->carrier_rev_map[l] = carrier;
       l++;
     }
   }
