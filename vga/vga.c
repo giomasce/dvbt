@@ -18,6 +18,9 @@
 #include <GL/glxew.h>
 #include <GL/freeglut.h>
 
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
+
 int frames = 0;
 
 int first = 1;
@@ -115,7 +118,11 @@ void init_data_buf_triple() {
 
 }
 
-#define init_data_buf init_data_buf_file
+void init_data_buf_null() {
+
+}
+
+#define init_data_buf init_data_buf_null
 
 void write_screen_to_pgm(unsigned char *screen) {
 
@@ -159,16 +166,34 @@ inline static const unsigned char *get_data_from_stdin(size_t request, size_t *n
 }
 
 #define SOCKET_BUF_LEN 65536
-int sock_fd;
+int sock_fd = -1, listen_fd;
+int factor = 4;
 inline static const unsigned char *get_data_from_socket(size_t request, size_t *num) {
 
   static unsigned char buf[SOCKET_BUF_LEN];
   *num = min(request, SOCKET_BUF_LEN);
-  *num = read(sock_fd, buf, *num);
+  ssize_t read_num;
 
-  if (*num <= 0) exit(0);
+  if (unlikely(sock_fd == -1)) {
+    bzero(buf, *num);
+    return buf;
+  }
 
-  return buf;
+  read_num = read(sock_fd, buf, (*num) / factor);
+
+  if (unlikely(read_num <= 0)) {
+    bzero(buf, *num);
+    sock_fd = -1;
+    return buf;
+  } else {
+    *num = read_num * factor;
+    if (factor > 1) {
+      for (int i = *num - 1; i >= 0; i--) {
+        buf[i] = buf[i / factor];
+      }
+    }
+    return buf;
+  }
 
 }
 
@@ -203,6 +228,16 @@ void DisplayCallback() {
   if (screen == NULL) {
     glutPostRedisplay();
     return;
+  }
+
+  // If we lost the connection (or never had one), wait for one shiny
+  // new to arrive (in the meantime, send an empty frame)
+  if (sock_fd < 0) {
+    glutSwapBuffers();
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    sock_fd = accept(listen_fd, NULL, NULL);
+    assert(sock_fd >= 0);
   }
 
   const unsigned char *buf;
@@ -392,8 +427,8 @@ int main(int argc, char** argv) {
   assert(glGetError() == 0);
 
   // Create socket and accept a connection
-  int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-  assert(sock_fd >= 0);
+  listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+  assert(listen_fd >= 0);
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
@@ -403,8 +438,6 @@ int main(int argc, char** argv) {
   assert(res3 == 0);
   res3 = listen(listen_fd, 1);
   assert(res3 == 0);
-  sock_fd = accept(listen_fd, NULL, NULL);
-  assert(sock_fd >= 0);
 
   glutMainLoop();
 
