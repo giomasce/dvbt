@@ -165,34 +165,80 @@ inline static const unsigned char *get_data_from_stdin(size_t request, size_t *n
 
 }
 
-#define SOCKET_BUF_LEN 65536
-int sock_fd = -1, listen_fd;
-int factor = 4;
-inline static const unsigned char *get_data_from_socket(size_t request, size_t *num) {
+#define COSINE_SAMPLE_NUM 1000
+char cosine_samples[COSINE_SAMPLE_NUM+1];
 
-  static unsigned char buf[SOCKET_BUF_LEN];
-  *num = min(request, SOCKET_BUF_LEN);
-  ssize_t read_num;
+void compute_cosine_samples() {
 
-  if (unlikely(sock_fd == -1)) {
-    bzero(buf, *num);
-    return buf;
+  int i;
+  for (i = 0; i <= COSINE_SAMPLE_NUM; i++) {
+    cosine_samples[i] = (char) floor(127.0 * cos(2 * M_PI * ((double) i) / COSINE_SAMPLE_NUM));
   }
 
-  read_num = read(sock_fd, buf, (*num) / factor);
+}
+
+inline double real_modulo(double x, double y) {
+
+  return x - y * floor(x / y);
+
+}
+
+#define SOCKET_BUF_LEN 65536
+int sock_fd = -1, listen_fd;
+unsigned char socket_buf[SOCKET_BUF_LEN];
+size_t socket_buf_used = 0;
+size_t socket_buf_returned = 0;
+int factor = 4;
+unsigned int sample_num = 0;
+double carrier_freq = 10e6;
+
+inline void fill_socket_buffer() {
+
+  size_t avail_space = SOCKET_BUF_LEN - socket_buf_used;
+  size_t request = avail_space / factor;
+
+  ssize_t read_num;
+  unsigned char *ref_buf = socket_buf + socket_buf_used;
+  read_num = read(sock_fd, ref_buf, request);
 
   if (unlikely(read_num <= 0)) {
-    bzero(buf, *num);
     sock_fd = -1;
-    return buf;
   } else {
-    *num = read_num * factor;
-    if (factor > 1) {
-      for (int i = *num - 1; i >= 0; i--) {
-        buf[i] = buf[i / factor];
-      }
+    /* Upsampling, upconverting of input signal (actually this is AM
+       modulation) and conversion to unsigned char. */
+    int i;
+    for (i = read_num * factor; i>= 0; i--) {
+      int cosine = (int) cosine_samples[(int) (COSINE_SAMPLE_NUM * real_modulo((sample_num + i) * carrier_freq / samp_freq, 1))];
+      int sample = (int) ((char*) ref_buf)[i / factor];
+      ref_buf[i] = (unsigned char) (128 + ((cosine * sample) / 127));
     }
-    return buf;
+
+    sample_num += read_num * factor;
+    socket_buf_used += read_num * factor;
+  }
+
+}
+
+inline static const unsigned char *get_data_from_socket(size_t request, size_t *num) {
+
+  if (unlikely(sock_fd == -1)) {
+    *num = min(request, SOCKET_BUF_LEN);
+    bzero(socket_buf, *num);
+    return socket_buf;
+  }
+
+  size_t socket_buf_avail = socket_buf_used - socket_buf_returned;
+  if (socket_buf_avail > 0) {
+    *num = min(request, socket_buf_avail);
+    unsigned char *res = socket_buf + socket_buf_returned;
+    socket_buf_returned += *num;
+    return res;
+  } else {
+    socket_buf_used = 0;
+    socket_buf_returned = 0;
+    fill_socket_buffer();
+    *num = 0;
+    return socket_buf;
   }
 
 }
@@ -369,6 +415,8 @@ void ReshapeCallback(int w, int h) {
 }
 
 int main(int argc, char** argv) {
+
+  compute_cosine_samples();
 
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
