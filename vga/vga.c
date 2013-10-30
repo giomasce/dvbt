@@ -172,7 +172,7 @@ void compute_cosine_samples() {
 
   int i;
   for (i = 0; i <= COSINE_SAMPLE_NUM; i++) {
-    cosine_samples[i] = (char) floor(127.0 * cos(2 * M_PI * ((double) i) / COSINE_SAMPLE_NUM));
+    cosine_samples[i] = (char) rint(127.0 * cos(2 * M_PI * ((double) i) / COSINE_SAMPLE_NUM));
   }
 
 }
@@ -183,6 +183,48 @@ inline double real_modulo(double x, double y) {
 
 }
 
+inline char cosine_sampled(double x) {
+
+  return cosine_samples[(int) rint(COSINE_SAMPLE_NUM * x)];
+
+}
+
+/* It actually computes sine, but it's the same for us. Taken and
+   adapted from http://lab.polygonal.de/?p=205. */
+inline char cosine_quadratic(double x) {
+
+  //always wrap input angle to -PI..PI
+  /*if (x < -M_PI)
+    x += 2 * M_PI;
+  else
+    if (x > M_PI)
+    x -= 2 * M_PI;*/
+
+  //compute sine
+  double sin;
+  if (x < 0.5) {
+    sin = -16.0 * x * (x - 0.5);
+  } else {
+    x -= 1.0;
+    sin = 16.0 * x * (x + 0.5);
+  }
+
+  //compute cosine: sin(x + PI/2) = cos(x)
+  /*x += 1.57079632;
+  if (x >  3.14159265)
+    x -= 6.28318531;
+
+  if (x < 0)
+    cos = 1.27323954 * x + 0.405284735 * x * x;
+  else
+  cos = 1.27323954 * x - 0.405284735 * x * x;*/
+
+  return (char) rint(127.0 * sin);
+
+}
+
+#define cosine cosine_quadratic
+
 #define SOCKET_BUF_LEN 65536
 int sock_fd = -1, listen_fd;
 unsigned char socket_buf[SOCKET_BUF_LEN];
@@ -190,15 +232,15 @@ size_t socket_buf_used = 0;
 size_t socket_buf_returned = 0;
 int factor = 4;
 unsigned int sample_num = 0;
-double carrier_freq = 10e6;
+double carrier_freq = 1e4;
 
 inline void fill_socket_buffer() {
 
-  size_t avail_space = SOCKET_BUF_LEN - socket_buf_used;
-  size_t request = avail_space / factor;
-
   ssize_t read_num;
   unsigned char *ref_buf = socket_buf + socket_buf_used;
+  assert(socket_buf_used < SOCKET_BUF_LEN);
+  size_t avail_space = SOCKET_BUF_LEN - socket_buf_used;
+  size_t request = avail_space / factor;
   read_num = read(sock_fd, ref_buf, request);
 
   if (unlikely(read_num <= 0)) {
@@ -207,10 +249,10 @@ inline void fill_socket_buffer() {
     /* Upsampling, upconverting of input signal (actually this is AM
        modulation) and conversion to unsigned char. */
     int i;
-    for (i = read_num * factor; i>= 0; i--) {
-      int cosine = (int) cosine_samples[(int) (COSINE_SAMPLE_NUM * real_modulo((sample_num + i) * carrier_freq / samp_freq, 1))];
+    for (i = read_num * factor - 1; i>= 0; i--) {
+      double cosine_arg = real_modulo(((double) (sample_num + i)) * carrier_freq / samp_freq, 1);
       int sample = (int) ((char*) ref_buf)[i / factor];
-      ref_buf[i] = (unsigned char) (128 + ((cosine * sample) / 127));
+      ref_buf[i] = (unsigned char) (128 + ((cosine(cosine_arg) * sample) / 127));
     }
 
     sample_num += read_num * factor;
@@ -228,6 +270,7 @@ inline static const unsigned char *get_data_from_socket(size_t request, size_t *
   }
 
   size_t socket_buf_avail = socket_buf_used - socket_buf_returned;
+  assert(socket_buf_avail >= 0);
   if (socket_buf_avail > 0) {
     *num = min(request, socket_buf_avail);
     unsigned char *res = socket_buf + socket_buf_returned;
