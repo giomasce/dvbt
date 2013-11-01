@@ -157,12 +157,16 @@ estbl_timing3:	.byte	0x00
 
 /* Standard timing */
 /* X resolution, less 31, divided by 8 (256-2288 pixels) */
+#ifndef NO_STD_TMGS
 std_xres:	.byte	(XPIX/8)-31
 /* Y resolution, X:Y pixel ratio
    Bits 7-6	X:Y pixel ratio: 00=16:10; 01=4:3; 10=5:4; 11=16:9.
    Bits 5-0	Vertical frequency, less 60 (60-123 Hz) */
 std_vres:	.byte	(XY_RATIO<<6)+VFREQ-60
 		.fill	7,2,0x0101	/* Unused */
+#else
+    .fill 8,2,0x0101
+#endif
 
 descriptor1:
 /* Pixel clock in 10 kHz units. (0.-655.35 MHz, little-endian) */
@@ -239,7 +243,9 @@ descriptor3:	.byte	0,0	/* Not a detailed timing descriptor */
 		.byte	0	/* Must be zero */
 		.byte	0xfd	/* Descriptor is monitor range limits */
 		.byte	0	/* Must be zero */
-start2:		.byte	VFREQ-1	/* Minimum vertical field rate (1-255 Hz) */
+start2:
+#ifndef LIBERAL_DET_TMGS
+		.byte	VFREQ-1	/* Minimum vertical field rate (1-255 Hz) */
 		.byte	VFREQ+1	/* Maximum vertical field rate (1-255 Hz) */
 		.byte	(CLOCK/(XPIX+XBLANK))-1 /* Minimum horizontal line rate
 						    (1-255 kHz) */
@@ -247,6 +253,13 @@ start2:		.byte	VFREQ-1	/* Minimum vertical field rate (1-255 Hz) */
 						    (1-255 kHz) */
 		.byte	(CLOCK/10000)+1	/* Maximum pixel clock rate, rounded up
 					   to 10 MHz multiple (10-2550 MHz) */
+#else
+    .byte 1
+    .byte 255
+    .byte 1
+    .byte 255
+    .byte 255
+#endif
 		.byte	0	/* No extended timing information type */
 end2:		.byte	0x0a	/* End marker */
 		.fill	12-(end2-start2), 1, 0x20 /* Padded spaces */
