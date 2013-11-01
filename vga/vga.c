@@ -18,6 +18,37 @@
 #include <GL/glxew.h>
 #include <GL/freeglut.h>
 
+/* Program configuration. */
+#define INPUT_SOCKET
+//#define INPUT_SINE
+//#define INPUT_FILE
+
+#ifdef INPUT_SOCKET
+#define init_data_buf init_data_buf_null
+#define GetData get_data_from_socket
+int sock_fd = -1;
+#else
+int sock_fd = 0;
+#endif
+int factor = 4;
+double carrier_freq = 1e4;
+
+#ifdef INPUT_SINE
+#define init_data_buf init_data_buf_sine
+#define GetData get_data_from_buffer
+#endif
+
+#ifdef INPUT_FILE
+#define init_data_buf init_data_buf_file
+#define GetData get_data_from_buffer
+#endif
+#define INPUT_FILENAME "dvbt2.pgm"
+
+#define cosine cosine_quadratic
+//#define cosine cosine_sampled
+
+/* End of program configuration. */
+
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
@@ -70,7 +101,7 @@ void init_data_buf_sine() {
 
 void init_data_buf_file() {
 
-  FILE *fin = fopen("dvbt2.pgm", "r");
+  FILE *fin = fopen(INPUT_FILENAME, "r");
   int i;
   for (i = 0; i < 4; i++) {
     while (fgetc(fin) != '\n') {}
@@ -121,8 +152,6 @@ void init_data_buf_triple() {
 void init_data_buf_null() {
 
 }
-
-#define init_data_buf init_data_buf_null
 
 void write_screen_to_pgm(unsigned char *screen) {
 
@@ -223,16 +252,12 @@ inline char cosine_quadratic(double x) {
 
 }
 
-#define cosine cosine_quadratic
-
 #define SOCKET_BUF_LEN 65536
-int sock_fd = -1, listen_fd;
+int listen_fd;
 unsigned char socket_buf[SOCKET_BUF_LEN];
 size_t socket_buf_used = 0;
 size_t socket_buf_returned = 0;
-int factor = 4;
 unsigned int sample_num = 0;
-double carrier_freq = 1e4;
 
 inline void fill_socket_buffer() {
 
@@ -285,8 +310,6 @@ inline static const unsigned char *get_data_from_socket(size_t request, size_t *
   }
 
 }
-
-#define GetData get_data_from_socket
 
 inline static void consume_data(size_t request) {
 
