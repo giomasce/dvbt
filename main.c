@@ -50,10 +50,14 @@ int main() {
     sw_advance(sw, ((int) round(shift)) + ctx->full_len);
     ofdm_context_shift_freqs(ctx, shift);
     if (locked) {
+      char filename[1024];
+      snprintf(filename, 1024, "dump/debug_%06d", i);
+      ofdm_context_dump_debug(ctx, filename);
       ofdm_context_normalize_energy(ctx);
       ofdm_context_decode_bits(ctx);
-      ofdm_context_dump_freqs(ctx, "dump");
-      exit(1);
+      snprintf(filename, 1024, "dump/symbol_%06d", i);
+      ofdm_context_dump_freqs(ctx, filename);
+      //exit(1);
     }
     bool tps_bit = ofdm_context_read_tps_bit(ctx);
     bool tps_finished = tps_decoder_push_bit(tps_dec, tps_bit);

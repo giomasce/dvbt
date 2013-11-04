@@ -196,12 +196,23 @@ void print_bin(FILE *fout, uint8_t x, Constellation c) {
 
 }
 
+void ofdm_context_dump_debug(OFDMContext *ctx, char *filename) {
+
+  FILE *fout = fopen(filename, "w");
+  fprintf(fout, "Energy at boundaries:\n");
+  fprintf(fout, "%f %f %f %f %f ... %f %f %f %f %f\n",
+          cabs(ctx->freqs[ctx->lower_idx-2]), cabs(ctx->freqs[ctx->lower_idx-1]), cabs(ctx->freqs[ctx->lower_idx]), cabs(ctx->freqs[ctx->lower_idx+1]), cabs(ctx->freqs[ctx->lower_idx+2]),
+          cabs(ctx->freqs[ctx->higher_idx-2]), cabs(ctx->freqs[ctx->higher_idx-1]), cabs(ctx->freqs[ctx->higher_idx]), cabs(ctx->freqs[ctx->higher_idx+1]), cabs(ctx->freqs[ctx->higher_idx+2]));
+  fclose(fout);
+
+}
+
 void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename) {
 
   FILE *fout = fopen(filename, "w");
   int idx;
   for (idx = ctx->lower_idx; idx <= ctx->higher_idx; idx++) {
-    fprintf(fout, "%f %f (%f) -> (%d)", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]), csqabs(ctx->freqs[idx]), ctx->carrier_map[idx-ctx->lower_idx]);
+    fprintf(fout, "%.20f %.20f (%f) -> (%d)", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]), csqabs(ctx->freqs[idx]), ctx->carrier_map[idx-ctx->lower_idx]);
     if (ctx->carrier_map[idx-ctx->lower_idx] >= 0) {
       fprintf(fout, " ");
       print_bin(fout, ctx->bits[ctx->carrier_map[idx-ctx->lower_idx]], CONSTELLATION_16_QAM);
