@@ -19,9 +19,14 @@
 #include <GL/freeglut.h>
 
 /* Program configuration. */
-#define INPUT_SOCKET
+//#define INPUT_SOCKET
 //#define INPUT_SINE
 //#define INPUT_FILE
+//#define INPUT_FOURIER
+#define INPUT_EMPTY
+
+#define cosine cosine_quadratic
+//#define cosine cosine_sampled
 
 #ifdef INPUT_SOCKET
 #define init_data_buf init_data_buf_null
@@ -44,13 +49,28 @@ double carrier_freq = 1e4;
 #endif
 #define INPUT_FILENAME "dvbt2.pgm"
 
-#define cosine cosine_quadratic
-//#define cosine cosine_sampled
+#ifdef INPUT_FOURIER
+#define init_data_buf init_data_buf_fourier
+#define GetData get_data_from_buffer
+#include <complex.h>
+#include <fftw3.h>
+double fourier_base_freq = 1e7;
+int fourier_orders[1024] = { 1, 2, 3, -1 };
+double complex fourier_coeffs[1024] = { 1.0, 0.5, 0.5 + 0.5 * I };
+#endif
+
+#ifdef INPUT_EMPTY
+#define init_data_buf init_data_buf_empty
+#define GetData get_data_from_buffer
+#endif
 
 /* End of program configuration. */
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
+
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+#define min(a, b) (((a) < (b)) ? (a) : (b))
 
 int frames = 0;
 
@@ -59,12 +79,6 @@ struct timespec first_ts, ts, prev_ts;
 
 double samp_freq, screen_time, fps;
 double signal_freq = 30.0;
-
-inline static size_t min(size_t x, size_t y) {
-
-  return (x < y) ? x : y;
-
-}
 
 int dotclock;
 XF86VidModeModeLine modeline;
@@ -152,6 +166,58 @@ void init_data_buf_triple() {
 void init_data_buf_null() {
 
 }
+
+void init_data_buf_empty() {
+
+  data_buf_len = 10000;
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
+  data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
+  memset(data_buf, 127, data_buf_len);
+
+}
+
+#ifdef INPUT_FOURIER
+
+void init_data_buf_fourier() {
+
+  data_buf_len = samp_freq / fourier_base_freq;
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
+  data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
+
+  double *signal = fftw_malloc(data_buf_len * sizeof(double));
+  int freq_num = (data_buf_len + 1) / 2;
+  complex double *freqs = fftw_malloc(freq_num * sizeof(double complex));
+  fftw_plan plan = fftw_plan_dft_c2r_1d(data_buf_len, freqs, signal, FFTW_ESTIMATE | FFTW_DESTROY_INPUT);
+
+  printf("freq_num: %d\n", freq_num);
+
+  bzero(freqs, freq_num * sizeof(double complex));
+  int i;
+  for (i = 0; fourier_orders[i] != -1; i++) {
+    if (fourier_orders[i] >= freq_num) {
+      printf("Warning: discarding too high Fourier order: %d\n", fourier_orders[i]);
+      continue;
+    }
+    freqs[fourier_orders[i]] = fourier_coeffs[i];
+  }
+
+  fftw_execute(plan);
+
+  double max_value = 1.0;
+  for (i = 0; i < data_buf_len; i++) {
+    max_value = max(max_value, fabs(signal[i]));
+  }
+  for (i = 0; i < data_buf_len; i++) {
+    data_buf[i] = (unsigned char) floor(127.0 * (1.0 + (signal[i] / max_value)));
+  }
+
+  fftw_destroy_plan(plan);
+  fftw_free(signal);
+  fftw_free(freqs);
+
+}
+
+#endif
 
 void write_screen_to_pgm(unsigned char *screen) {
 
@@ -529,6 +595,19 @@ int main(int argc, char** argv) {
   printf("Useful time: %f\n", ((double) modeline.hdisplay * modeline.vdisplay) / ((double) modeline.htotal * modeline.vtotal));
 
   init_data_buf();
+  /* Make sure that the data buffer is long at least a full screen, so
+     that we don't lose too much time in copying data from it. */
+  int screen_len = modeline.htotal * modeline.vtotal;
+  if (data_buf_len > 0) {
+    int rep_num = (screen_len / data_buf_len) + 1;
+    printf("rep_num: %d\n", rep_num);
+    data_buf = realloc(data_buf, data_buf_len * rep_num);
+    int i;
+    for (i = 1; i < rep_num; i++) {
+      memcpy(data_buf + i * data_buf_len, data_buf, data_buf_len);
+    }
+    data_buf_len *= rep_num;
+  }
 
   glGenBuffersARB(2, pbo_buf);
   assert(glGetError() == 0);
@@ -540,7 +619,7 @@ int main(int argc, char** argv) {
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   assert(glGetError() == 0);
 
-  // Create socket and accept a connection
+  // Create socket and listen
   listen_fd = socket(AF_INET, SOCK_STREAM, 0);
   assert(listen_fd >= 0);
   struct sockaddr_in addr;
