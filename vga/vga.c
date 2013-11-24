@@ -19,11 +19,11 @@
 #include <GL/freeglut.h>
 
 /* Program configuration. */
-//#define INPUT_SOCKET
+#define INPUT_SOCKET
 //#define INPUT_SINE
 //#define INPUT_FILE
 //#define INPUT_FOURIER
-#define INPUT_EMPTY
+//#define INPUT_EMPTY
 
 #define cosine cosine_quadratic
 //#define cosine cosine_sampled
@@ -35,8 +35,8 @@ int sock_fd = -1;
 #else
 int sock_fd = 0;
 #endif
-int factor = 4;
-double carrier_freq = 1e4;
+int factor = 40;
+double carrier_freq = 1e6;
 
 #ifdef INPUT_SINE
 #define init_data_buf init_data_buf_sine
@@ -54,9 +54,9 @@ double carrier_freq = 1e4;
 #define GetData get_data_from_buffer
 #include <complex.h>
 #include <fftw3.h>
-double fourier_base_freq = 1e7;
-int fourier_orders[1024] = { 1, 2, 3, -1 };
-double complex fourier_coeffs[1024] = { 1.0, 0.5, 0.5 + 0.5 * I };
+double fourier_base_freq = 1e2;
+int fourier_orders[1024] = { 10000, 10000+4, 10000-4, -1, 2, 3, -1 };
+double complex fourier_coeffs[1024] = { 1.0, 0.5, 0.5 };
 #endif
 
 #ifdef INPUT_EMPTY
@@ -77,7 +77,7 @@ int frames = 0;
 int first = 1;
 struct timespec first_ts, ts, prev_ts;
 
-double samp_freq, screen_time, fps;
+double samp_freq, horiz_freq, screen_time, fps;
 double signal_freq = 30.0;
 
 int dotclock;
@@ -285,34 +285,16 @@ inline char cosine_sampled(double x) {
 }
 
 /* It actually computes sine, but it's the same for us. Taken and
-   adapted from http://lab.polygonal.de/?p=205. */
-inline char cosine_quadratic(double x) {
+   adapted from http://lab.polygonal.de/?p=205. Input x is assumed to
+   be normalized between 0 and 1 instead of 0 and PI. */
+inline char cosine_quadratic(const double x) {
 
-  //always wrap input angle to -PI..PI
-  /*if (x < -M_PI)
-    x += 2 * M_PI;
-  else
-    if (x > M_PI)
-    x -= 2 * M_PI;*/
-
-  //compute sine
   double sin;
   if (x < 0.5) {
     sin = -16.0 * x * (x - 0.5);
   } else {
-    x -= 1.0;
-    sin = 16.0 * x * (x + 0.5);
+    sin = 16.0 * (x - 1.0) * (x - 0.5);
   }
-
-  //compute cosine: sin(x + PI/2) = cos(x)
-  /*x += 1.57079632;
-  if (x >  3.14159265)
-    x -= 6.28318531;
-
-  if (x < 0)
-    cos = 1.27323954 * x + 0.405284735 * x * x;
-  else
-  cos = 1.27323954 * x - 0.405284735 * x * x;*/
 
   return (char) rint(127.0 * sin);
 
@@ -589,10 +571,15 @@ int main(int argc, char** argv) {
   }
 
   samp_freq = 1000.0 * dotclock;
+  horiz_freq = samp_freq / modeline.htotal;
   fps = samp_freq / modeline.htotal / modeline.vtotal;
   screen_time = 1.0 / fps;
-  printf("%f %f %f\n", samp_freq, screen_time, fps);
+  printf("%f %f %f %f\n", samp_freq, horiz_freq, screen_time, fps);
   printf("Useful time: %f\n", ((double) modeline.hdisplay * modeline.vdisplay) / ((double) modeline.htotal * modeline.vtotal));
+
+#ifdef INPUT_SOCKET
+  printf("Expecting input at %f Msamp/s\n", samp_freq / factor / 1e6);
+#endif
 
   init_data_buf();
   /* Make sure that the data buffer is long at least a full screen, so
