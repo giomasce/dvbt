@@ -6,10 +6,14 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
+#include <complex.h>
+#include <fftw3.h>
 
 #include <X11/Xlib.h>
 #include <X11/extensions/xf86vmode.h>
@@ -19,22 +23,27 @@
 #include <GL/freeglut.h>
 
 /* Program configuration. */
-#define INPUT_SOCKET
+//#define INPUT_EMPTY
+//#define INPUT_SOCKET
 //#define INPUT_SINE
 //#define INPUT_FILE
 //#define INPUT_FOURIER
-//#define INPUT_EMPTY
+#define INPUT_OFDM
 
 #define cosine cosine_quadratic
 //#define cosine cosine_sampled
 
+#ifdef INPUT_EMPTY
+#define init_data_buf init_data_buf_empty
+#define GetData get_data_from_buffer
+#endif
+
 #ifdef INPUT_SOCKET
 #define init_data_buf init_data_buf_null
 #define GetData get_data_from_socket
-int sock_fd = -1;
-#else
-int sock_fd = 0;
 #endif
+int socket_port = 2204;
+int sock_fd = -1;
 int factor = 40;
 double carrier_freq = 1e6;
 
@@ -52,17 +61,27 @@ double carrier_freq = 1e6;
 #ifdef INPUT_FOURIER
 #define init_data_buf init_data_buf_fourier
 #define GetData get_data_from_buffer
-#include <complex.h>
-#include <fftw3.h>
-double fourier_base_freq = 1e2;
-int fourier_orders[1024] = { 10000, 10000+4, 10000-4, -1, 2, 3, -1 };
-double complex fourier_coeffs[1024] = { 1.0, 0.5, 0.5 };
 #endif
+double fourier_base_freq = 1e2;
+int fourier_orders_conf[1024] = { 10000, 10000+4, 10000-4, -1, 2, 3, -1 };
+int *fourier_orders = fourier_orders_conf;
+double complex fourier_coeffs_conf[1024] = { 1.0, 0.5, 0.5 };
+double complex *fourier_coeffs = fourier_coeffs_conf;
 
-#ifdef INPUT_EMPTY
-#define init_data_buf init_data_buf_empty
+#ifdef INPUT_OFDM
+#define init_data_buf init_data_buf_ofdm
 #define GetData get_data_from_buffer
 #endif
+double ofdm_carrier_sep = 1e3;
+double ofdm_guard_len = 0.5;
+int ofdm_first_carrier = 100;
+unsigned char ofdm_content[] = { -1, 0, 1, 0,
+                               -1, 0, 1, 0,
+                               -1, 0, 0, 1,
+                               -1, 1, 0, 1,
+                               -1, 1, 0, 1,
+                               -1, 1, 1, 0,
+                               -1 };
 
 /* End of program configuration. */
 
@@ -176,12 +195,11 @@ void init_data_buf_empty() {
 
 }
 
-#ifdef INPUT_FOURIER
-
 void init_data_buf_fourier() {
 
   data_buf_len = samp_freq / fourier_base_freq;
   printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
+  printf("real fourier_base_freq: %f\n", samp_freq / data_buf_len);
   data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
 
   double *signal = fftw_malloc(data_buf_len * sizeof(double));
@@ -217,7 +235,37 @@ void init_data_buf_fourier() {
 
 }
 
-#endif
+void init_data_buf_ofdm() {
+
+  int ofdm_length = sizeof(ofdm_content) / sizeof(ofdm_content[0]);
+  fourier_base_freq = ofdm_carrier_sep;
+  fourier_orders = malloc(sizeof(int) * (ofdm_length + 1));
+  fourier_coeffs = malloc(sizeof(double complex) * ofdm_length);
+
+  // Compute FFT coefficients
+  for (int i = 0; i < ofdm_length; i++) {
+    fourier_orders[i] = ofdm_first_carrier + i;
+    if (ofdm_content[i] == -1) {
+      fourier_coeffs[i] = 4.0 / 3.0;
+    } else {
+      fourier_coeffs[i] = 2 * ofdm_content[i] - 1;
+    }
+  }
+  fourier_orders[ofdm_length] = -1;
+
+  init_data_buf_fourier();
+
+  // Insert guard interval
+  int real_length = data_buf_len * (1.0 + ofdm_guard_len);
+  data_buf = realloc(data_buf, real_length);
+  memcpy(data_buf + data_buf_len, data_buf, real_length - data_buf_len);
+  data_buf_len = real_length;
+  printf("data_buf_len with guard interval: %u\n", (unsigned int) data_buf_len);
+
+  free(fourier_orders);
+  free(fourier_coeffs);
+
+}
 
 void write_screen_to_pgm(unsigned char *screen) {
 
@@ -390,6 +438,7 @@ void DisplayCallback() {
     return;
   }
 
+#ifdef INPUT_SOCKET
   // If we lost the connection (or never had one), wait for one shiny
   // new to arrive (in the meantime, send an empty frame)
   if (sock_fd < 0) {
@@ -399,6 +448,7 @@ void DisplayCallback() {
     sock_fd = accept(listen_fd, NULL, NULL);
     assert(sock_fd >= 0);
   }
+#endif
 
   const unsigned char *buf;
   for (int line = 0; line < modeline.vdisplay; line++) {
@@ -606,18 +656,20 @@ int main(int argc, char** argv) {
   glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
   assert(glGetError() == 0);
 
+#ifdef INPUT_SOCKET
   // Create socket and listen
   listen_fd = socket(AF_INET, SOCK_STREAM, 0);
   assert(listen_fd >= 0);
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
-  addr.sin_port = htons(2204);
+  addr.sin_port = htons(socket_port);
   int res3;
   res3 = bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr));
   assert(res3 == 0);
   res3 = listen(listen_fd, 1);
   assert(res3 == 0);
+#endif
 
   glutMainLoop();
 
