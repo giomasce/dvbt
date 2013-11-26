@@ -35,12 +35,12 @@
 
 #ifdef INPUT_EMPTY
 #define init_data_buf init_data_buf_empty
-#define GetData get_data_from_buffer
+#define get_data get_data_from_buffer
 #endif
 
 #ifdef INPUT_SOCKET
 #define init_data_buf init_data_buf_null
-#define GetData get_data_from_socket
+#define get_data get_data_from_socket
 #endif
 int socket_port = 2204;
 int sock_fd = -1;
@@ -49,18 +49,18 @@ double carrier_freq = 1e6;
 
 #ifdef INPUT_SINE
 #define init_data_buf init_data_buf_sine
-#define GetData get_data_from_buffer
+#define get_data get_data_from_buffer
 #endif
 
 #ifdef INPUT_FILE
 #define init_data_buf init_data_buf_file
-#define GetData get_data_from_buffer
+#define get_data get_data_from_buffer
 #endif
 #define INPUT_FILENAME "dvbt2.pgm"
 
 #ifdef INPUT_FOURIER
 #define init_data_buf init_data_buf_fourier
-#define GetData get_data_from_buffer
+#define get_data get_data_from_buffer
 #endif
 double fourier_base_freq = 1e2;
 int fourier_orders_conf[1024] = { 10000, 10000+4, 10000-4, -1, 2, 3, -1 };
@@ -70,7 +70,7 @@ double complex *fourier_coeffs = fourier_coeffs_conf;
 
 #ifdef INPUT_OFDM
 #define init_data_buf init_data_buf_ofdm
-#define GetData get_data_from_buffer
+#define get_data get_data_from_buffer
 #endif
 double ofdm_carrier_sep = 1e3;
 double ofdm_guard_len = 0.5;
@@ -411,7 +411,7 @@ inline static void consume_data(size_t request) {
 
   while (request > 0) {
     size_t num;
-    GetData(request, &num);
+    get_data(request, &num);
     request -= num;
   }
 
@@ -422,7 +422,7 @@ unsigned int pbo_buf[2];
 size_t pbo_idx = 0;
 unsigned int texture;
 
-void DisplayCallback() {
+void display_callback() {
 
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
@@ -450,12 +450,13 @@ void DisplayCallback() {
   }
 #endif
 
+  // Prepare the pixel data that have to appear on the screen
   const unsigned char *buf;
   for (int line = 0; line < modeline.vdisplay; line++) {
     size_t num;
     for (int pos = 0; pos < modeline.hdisplay; pos += num) {
       //printf("  %d %d\n", pos, line);
-      buf = GetData(modeline.hdisplay - pos, &num);
+      buf = get_data(modeline.hdisplay - pos, &num);
       memcpy(screen + pos + line * modeline.hdisplay, buf, num);
       /*int base = pos + line * modeline.hdisplay;
       for (int i = 0; i < num; i++) {
@@ -469,6 +470,7 @@ void DisplayCallback() {
   consume_data(modeline.htotal * (modeline.vtotal - modeline.vdisplay));
   //write_screen_to_pgm(screen);
 
+  // Transfer screen data to a Pixel Buffer Object
   glBindBufferARB(GL_PIXEL_PACK_BUFFER, pbo_buf[pbo_idx]);
   assert(glGetError() == 0);
   glBufferSubDataARB(GL_PIXEL_PACK_BUFFER, 0, modeline.vdisplay * modeline.hdisplay * sizeof(unsigned char), screen);
@@ -482,12 +484,9 @@ void DisplayCallback() {
   // Apparently we don't really need two PBOs
   //pbo_idx = (pbo_idx + 1) % 2;
 
+  // Transfer screen data to the texture buffer
   glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, pbo_buf[pbo_idx]);
   assert(glGetError() == 0);
-  //glRasterPos2i(0, 0);
-  //assert(glGetError() == 0);
-  //glDrawPixels(modeline.hdisplay, modeline.vdisplay, GL_RED, GL_UNSIGNED_BYTE, 0);
-  //assert(glGetError() == 0);
   glBindTexture(GL_TEXTURE_2D, texture);
   assert(glGetError() == 0);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -499,6 +498,7 @@ void DisplayCallback() {
   glBindBufferARB(GL_PIXEL_UNPACK_BUFFER, 0);
   assert(glGetError() == 0);
 
+  // Actually draw a quad with the right rexture on the screen
   glBegin(GL_QUADS);
   glTexCoord2d(0.0, 1.0);
   glVertex2d(-1.0, -1.0);
@@ -511,11 +511,13 @@ void DisplayCallback() {
   glEnd();
   assert(glGetError() == 0);
 
+  // Perform ending commands
   //glFinish();
   glutSwapBuffers();
   //glFlush();
   //glFinish();
 
+  // Print timing statistics
   if (first) {
     clock_gettime(CLOCK_MONOTONIC, &first_ts);
     first = 0;
@@ -535,11 +537,13 @@ void DisplayCallback() {
   }
   frames++;
 
+  /* Schedule next round (synchronization is guaranteed by extension
+     GLX_swap_control. */
   glutPostRedisplay();
 
 }
 
-void KeyboardCallback(unsigned char key, int x, int y) {
+void keyboard_callback(unsigned char key, int x, int y) {
 
   if (key == 'x' || key == 'X') {
     exit(0);
@@ -547,14 +551,17 @@ void KeyboardCallback(unsigned char key, int x, int y) {
 
 }
 
-void ReshapeCallback(int w, int h) {
+void reshape_callback(int w, int h) {
 
+  // Accept the window size only if it coincides with screen size
   if (w == modeline.hdisplay && h == modeline.vdisplay) {
 
     printf("(%d, %d) accepted\n", w, h);
     glViewport(0, 0, w, h);
     screen = (unsigned char*) realloc(screen, w * h * sizeof(unsigned char));
 
+    /* Prepare two Pixel Buffer Objects for fast screen data transfer
+       (we're going to actually use only one at the moment). */
     glDeleteBuffersARB(2, pbo_buf);
     assert(glGetError() == 0);
     glGenBuffersARB(2, pbo_buf);
@@ -589,9 +596,9 @@ int main(int argc, char** argv) {
   glutCreateWindow("");
   glutFullScreen();
 
-  glutDisplayFunc(DisplayCallback);
-  glutKeyboardFunc(KeyboardCallback);
-  glutReshapeFunc(ReshapeCallback);
+  glutDisplayFunc(display_callback);
+  glutKeyboardFunc(keyboard_callback);
+  glutReshapeFunc(reshape_callback);
 
   // Must be done after glut is initialized!
   GLenum res = glewInit();
@@ -646,6 +653,7 @@ int main(int argc, char** argv) {
     data_buf_len *= rep_num;
   }
 
+  // Prepare some OpenGL objects
   glGenBuffersARB(2, pbo_buf);
   assert(glGetError() == 0);
   glGenTextures(1, &texture);
