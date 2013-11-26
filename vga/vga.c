@@ -72,16 +72,15 @@ double complex *fourier_coeffs = fourier_coeffs_conf;
 #define init_data_buf init_data_buf_ofdm
 #define get_data get_data_from_buffer
 #endif
-double ofdm_carrier_sep = 1e3;
+double ofdm_carrier_sep = 2e3;
 double ofdm_guard_len = 0.5;
 int ofdm_first_carrier = 100;
-unsigned char ofdm_content[] = { -1, 0, 1, 0,
-                               -1, 0, 1, 0,
-                               -1, 0, 0, 1,
-                               -1, 1, 0, 1,
-                               -1, 1, 0, 1,
-                               -1, 1, 1, 0,
-                               -1 };
+unsigned char ofdm_content[] = {
+  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+  -1 };
 
 /* End of program configuration. */
 
@@ -260,7 +259,12 @@ void init_data_buf_ofdm() {
   data_buf = realloc(data_buf, real_length);
   memcpy(data_buf + data_buf_len, data_buf, real_length - data_buf_len);
   data_buf_len = real_length;
+
+  // Print some info
   printf("data_buf_len with guard interval: %u\n", (unsigned int) data_buf_len);
+  printf("OFDM bandwidth: %f -- %f\n",
+         ofdm_carrier_sep * ofdm_first_carrier,
+         ofdm_carrier_sep * (ofdm_first_carrier + ofdm_length));
 
   free(fourier_orders);
   free(fourier_coeffs);
