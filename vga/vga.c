@@ -75,7 +75,7 @@ double complex *fourier_coeffs = fourier_coeffs_conf;
 double ofdm_carrier_sep = 2e3;
 double ofdm_guard_len = 0.5;
 int ofdm_first_carrier = 100;
-unsigned char ofdm_content[] = {
+char ofdm_content[] = {
   -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
   -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
   -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
@@ -228,6 +228,20 @@ void init_data_buf_fourier() {
     data_buf[i] = (unsigned char) floor(127.0 * (1.0 + (signal[i] / max_value)));
   }
 
+  /* Save a debug copy of data_buf and signal. */
+  FILE *fdata = fopen("data_buf", "w");
+  FILE *fsignal = fopen("signal", "w");
+  fprintf(fdata, "%zd signed_byte\n", data_buf_len);
+  fprintf(fsignal, "%zd float\n", data_buf_len);
+  for (i = 0; i < data_buf_len; i++) {
+    fprintf(fdata, "%d ", data_buf[i]);
+    fprintf(fsignal, "%f ", signal[i]);
+  }
+  fprintf(fdata, "\n");
+  fprintf(fsignal, "\n");
+  fclose(fdata);
+  fclose(fsignal);
+
   fftw_destroy_plan(plan);
   fftw_free(signal);
   fftw_free(freqs);
@@ -246,8 +260,13 @@ void init_data_buf_ofdm() {
     fourier_orders[i] = ofdm_first_carrier + i;
     if (ofdm_content[i] == -1) {
       fourier_coeffs[i] = 4.0 / 3.0;
+    } else if (ofdm_content[i] == 1) {
+      fourier_coeffs[i] = 1.0;
+    } else if (ofdm_content[i] == 0) {
+      fourier_coeffs[i] = -1.0;
     } else {
-      fourier_coeffs[i] = 2 * ofdm_content[i] - 1;
+      printf("Wrong input data: ofdm_content\n");
+      continue;
     }
   }
   fourier_orders[ofdm_length] = -1;
@@ -643,6 +662,7 @@ int main(int argc, char** argv) {
 #endif
 
   init_data_buf();
+
   /* Make sure that the data buffer is long at least a full screen, so
      that we don't lose too much time in copying data from it. */
   int screen_len = modeline.htotal * modeline.vtotal;
