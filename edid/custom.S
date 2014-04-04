@@ -27,18 +27,29 @@
 #define XPIX 2048
 #define YPIX 1024
 #define XY_RATIO XY_RATIO_4_3
+
+//#define XBLANK 24
+//#define YBLANK 3
+//#define XOFFSET 8
+//#define XPULSE 8
+//#define YOFFSET (63+1)
+//#define YPULSE (63+1)
+
 #define XBLANK 24
 #define YBLANK 3
 #define XOFFSET 8
 #define XPULSE 8
 #define YOFFSET (63+1)
 #define YPULSE (63+1)
+
 #define DPI 72
 #define VFREQ 60 /* Hz */
 #define TIMING_NAME "Linux XGA"
 #define ESTABLISHED_TIMINGS_BITS 0x00
 #define HSYNC_POL 0
 #define VSYNC_POL 0
+
+//#define CRC 0x09
 #define CRC 0x09
 
 #define NO_STD_TMGS
