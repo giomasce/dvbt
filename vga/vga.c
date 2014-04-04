@@ -26,9 +26,9 @@
 //#define INPUT_EMPTY
 //#define INPUT_SOCKET
 //#define INPUT_SINE
-//#define INPUT_FILE
+#define INPUT_FILE
 //#define INPUT_FOURIER
-#define INPUT_OFDM
+//#define INPUT_OFDM
 
 #define cosine cosine_quadratic
 //#define cosine cosine_sampled
@@ -62,8 +62,8 @@ double carrier_freq = 1e6;
 #define init_data_buf init_data_buf_fourier
 #define get_data get_data_from_buffer
 #endif
-double fourier_base_freq = 1e2;
-int fourier_orders_conf[1024] = { 10000, 10000+4, 10000-4, -1, 2, 3, -1 };
+double fourier_base_freq = 4e3;
+int fourier_orders_conf[1024] = { 1000, 1000+6, 1000-6, -1, 2, 3, -1 };
 int *fourier_orders = fourier_orders_conf;
 double complex fourier_coeffs_conf[1024] = { 1.0, 0.5, 0.5 };
 double complex *fourier_coeffs = fourier_coeffs_conf;
@@ -72,14 +72,26 @@ double complex *fourier_coeffs = fourier_coeffs_conf;
 #define init_data_buf init_data_buf_ofdm
 #define get_data get_data_from_buffer
 #endif
-double ofdm_carrier_sep = 2e3;
+double ofdm_carrier_sep = 1e3;
 double ofdm_guard_len = 0.5;
-int ofdm_first_carrier = 100;
-char ofdm_content[] = {
-  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
-  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
-  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
-  -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+int ofdm_first_carrier = 1000;
+char ofdm_content[] = { 
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, -1,
+  //-1, 0, 1, 0, -1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0,
+  //-1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+  //-1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
+  //-1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 0, 1, -1, 1, 0, 1, -1, 1, 0, 1, -1, 1, 1, 0,
   -1 };
 
 /* End of program configuration. */
@@ -96,7 +108,7 @@ int first = 1;
 struct timespec first_ts, ts, prev_ts;
 
 double samp_freq, horiz_freq, screen_time, fps;
-double signal_freq = 30.0;
+double signal_freq = 3e6;
 
 int dotclock;
 XF86VidModeModeLine modeline;
@@ -194,6 +206,15 @@ void init_data_buf_empty() {
 
 }
 
+inline static unsigned char to_sample(float value) {
+
+  value = 127.0 * (value + 1.0);
+  if (value >= 255.0) return 255;
+  if (value <= 0.0) return 0;
+  return (unsigned char) floor(value);
+
+}
+
 void init_data_buf_fourier() {
 
   data_buf_len = samp_freq / fourier_base_freq;
@@ -221,11 +242,23 @@ void init_data_buf_fourier() {
   fftw_execute(plan);
 
   double max_value = 1.0;
+  double l2_norm = 0.0;
   for (i = 0; i < data_buf_len; i++) {
     max_value = max(max_value, fabs(signal[i]));
+    l2_norm += fabs(signal[i]) * fabs(signal[i]);
   }
+  l2_norm /= data_buf_len;
+  l2_norm = sqrt(l2_norm);
+  printf("max_value: %f\n", max_value);
+  printf("l2_norm: %f\n", l2_norm);
+
   for (i = 0; i < data_buf_len; i++) {
-    data_buf[i] = (unsigned char) floor(127.0 * (1.0 + (signal[i] / max_value)));
+    float norm_coeff;
+    //norm_coeff = max_value;
+    //norm_coeff = l2_norm;
+    norm_coeff = l2_norm * 2;
+    //norm_coeff = sqrt(max_value * l2_norm);
+    data_buf[i] = to_sample(signal[i] / norm_coeff);
   }
 
   /* Save a debug copy of data_buf and signal. */
