@@ -34,7 +34,7 @@ OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans
   ctx->frame_offset = 0;
 
   ctx->signal = fftw_malloc(sizeof(double) * ctx->packet_len);
-  ctx->freqs = fftw_malloc(sizeof(double complex) * ((ctx->packet_len + 1) / 2));
+  ctx->freqs = fftw_malloc(sizeof(double complex) * (ctx->packet_len / 2 + 1));
   ctx->bits = malloc(sizeof(uint8_t) * USEFUL_CARRIERS_NUM[ctx->trans_mode]);
 
   ctx->carrier_map = malloc(sizeof(int32_t) * ctx->carrier_num);
