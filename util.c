@@ -199,7 +199,7 @@ void heap_pop(Heap *heap) {
 
 }
 
-double csqabs(complex x) {
+double csqabs(double complex x) {
 
   double r = creal(x);
   double i = cimag(x);

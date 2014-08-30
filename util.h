@@ -42,6 +42,6 @@ void heap_push(Heap *heap, double weight, void *ptr);
 void heap_top(Heap *heap, double *weight, void **ptr);
 void heap_pop(Heap *heap);
 
-double csqabs(complex x);
+double csqabs(double complex x);
 
 #endif

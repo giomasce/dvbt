@@ -311,7 +311,7 @@ uint8_t decode_semiaxis(double x, Constellation c, Hierarchy h) {
 
 }
 
-uint8_t decode_bits(complex x, Constellation c, Hierarchy h) {
+uint8_t decode_bits(double complex x, Constellation c, Hierarchy h) {
 
   x /= ENERGY_NORMALIZATION[c][h];
 
