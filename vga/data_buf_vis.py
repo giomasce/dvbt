@@ -18,7 +18,7 @@ def main():
     freqs = fft(samples)
     freqs = freqs[:len(freqs)/2]
     yscale('log')
-    plot(map(lambda x: abs(x)**2, freqs[:1000]))
+    plot(map(lambda x: abs(x)**2, freqs[:]))
     show()
 
 if __name__ == '__main__':

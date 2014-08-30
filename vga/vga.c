@@ -26,9 +26,9 @@
 //#define INPUT_EMPTY
 //#define INPUT_SOCKET
 //#define INPUT_SINE
-#define INPUT_FILE
+//#define INPUT_FILE
 //#define INPUT_FOURIER
-//#define INPUT_OFDM
+#define INPUT_OFDM
 
 #define cosine cosine_quadratic
 //#define cosine cosine_sampled
@@ -254,9 +254,10 @@ void init_data_buf_fourier() {
 
   for (i = 0; i < data_buf_len; i++) {
     float norm_coeff;
-    //norm_coeff = max_value;
+    norm_coeff = max_value;
+    //norm_coeff = max_value / 2.0;
     //norm_coeff = l2_norm;
-    norm_coeff = l2_norm * 2;
+    //norm_coeff = l2_norm * 2;
     //norm_coeff = sqrt(max_value * l2_norm);
     data_buf[i] = to_sample(signal[i] / norm_coeff);
   }
@@ -296,7 +297,7 @@ void init_data_buf_ofdm() {
     } else if (ofdm_content[i] == 1) {
       fourier_coeffs[i] = 1.0;
     } else if (ofdm_content[i] == 0) {
-      fourier_coeffs[i] = -1.0;
+      fourier_coeffs[i] = 0.0;
     } else {
       printf("Wrong input data: ofdm_content\n");
       continue;
