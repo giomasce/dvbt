@@ -33,8 +33,8 @@ OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans
 
   ctx->frame_offset = 0;
 
-  ctx->signal = fftw_malloc(sizeof(double) * ctx->packet_len);
-  ctx->freqs = fftw_malloc(sizeof(double complex) * (ctx->packet_len / 2 + 1));
+  ctx->signal = fftw_malloc(sizeof(double complex) * ctx->packet_len);
+  ctx->freqs = fftw_malloc(sizeof(double complex) * ctx->packet_len);
   ctx->bits = malloc(sizeof(uint8_t) * USEFUL_CARRIERS_NUM[ctx->trans_mode]);
 
   ctx->carrier_map = malloc(sizeof(int32_t) * ctx->carrier_num);
@@ -42,8 +42,8 @@ OFDMContext *ofdm_context_new(double samp_freq, double mod_freq, TransMode trans
 
   unsigned int flags = FFTW_MEASURE | FFTW_DESTROY_INPUT;
   flags = FFTW_ESTIMATE | FFTW_DESTROY_INPUT;
-  ctx->fft_forward_plan = fftw_plan_dft_r2c_1d(ctx->packet_len, ctx->signal, ctx->freqs, flags);
-  ctx->fft_backward_plan = fftw_plan_dft_c2r_1d(ctx->packet_len, ctx->freqs, ctx->signal, flags);
+  ctx->fft_forward_plan = fftw_plan_dft_1d(ctx->packet_len, ctx->signal, ctx->freqs, FFTW_FORWARD, flags);
+  ctx->fft_backward_plan = fftw_plan_dft_1d(ctx->packet_len, ctx->freqs, ctx->signal, FFTW_BACKWARD, flags);
 
   ctx->sw = sw;
 
@@ -66,11 +66,7 @@ void ofdm_context_destroy(OFDMContext *ctx) {
 
 void ofdm_context_decode_symbol(OFDMContext *ctx, size_t offset) {
 
-  int i;
-  for (i = 0; i < ctx->packet_len; i++) {
-    uint8_t sample = ctx->sw->ref[i+offset];
-    ctx->signal[i] = ((double) sample) / 255.0;
-  }
+  memcpy(ctx->signal, ctx->sw->ref + offset, sizeof(double complex) * ctx->packet_len);
   fftw_execute(ctx->fft_forward_plan);
 
 }

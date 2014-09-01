@@ -5,17 +5,40 @@
 
 #include "util.h"
 
-size_t fread_exact(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+#ifdef FILE_FORMAT_I_U8
+
+size_t fread_size = 1;
+
+static inline void fread_convert(double complex *dst, void *src_, size_t nmemb) {
+
+  size_t i;
+  uint8_t *src = src_;
+  for (i = 0; i < nmemb; i++) {
+    double real_sig = (((double) src[i]) - 128.0) / 128.0;
+    dst[i] = real_sig + 0*I;
+  }
+
+}
+
+#endif
+
+static inline size_t fread_and_convert(double complex *ptr, size_t nmemb, FILE *stream) {
 
   size_t read = 0;
+  void *tmp_buf = malloc(fread_size * nmemb);
+  void *tmp_ref = tmp_buf;
   while (read < nmemb) {
-    size_t new_read = fread(ptr, size, nmemb - read, stream);
+    size_t new_read = fread(tmp_ref, fread_size, nmemb - read, stream);
     if (new_read == 0) {
-      return read;
+      goto finish;
     }
     read += new_read;
-    ptr = ((uint8_t*) ptr) + new_read * size;
+    tmp_ref = ((char*) tmp_ref) + new_read * fread_size;
   }
+
+ finish:
+  fread_convert(ptr, tmp_buf, nmemb);
+  free(tmp_buf);
 
   return read;
 
@@ -26,7 +49,7 @@ SlidingWindow *sw_new(FILE *fin) {
   SlidingWindow *sw = malloc(sizeof(SlidingWindow));
   sw->fin = fin;
   sw->buf_len = 10;
-  sw->buf = malloc(sw->buf_len);
+  sw->buf = malloc(sizeof(double complex) * sw->buf_len);
   sw->ref = sw->buf;
   sw->total_offset = 0;
   sw->reserved_back = 0;
@@ -50,7 +73,7 @@ uint32_t sw_reserve_front(SlidingWindow *sw, size_t n) {
   } else if (sw->ref + n <= sw->buf + sw->buf_len) {
     // We have enough memory to store the new data without compacting
     // or enlarging
-    size_t read = fread_exact(sw->ref + sw->reserved_front, 1, n - sw->reserved_front, sw->fin);
+    size_t read = fread_and_convert(sw->ref + sw->reserved_front, n - sw->reserved_front, sw->fin);
     // In case of error, advance reserved_front only of the number of
     // actually read bytes
     sw->reserved_front = sw->reserved_front + read;
@@ -59,18 +82,17 @@ uint32_t sw_reserve_front(SlidingWindow *sw, size_t n) {
     }
   } else {
     // First we try to compact
-    memmove(sw->buf, sw->ref - sw->reserved_back, sw->reserved_back + sw->reserved_front);
-    sw->ref = sw->buf + sw->reserved_back;
+    memmove(sw->buf, sw->ref - sw->reserved_back, sizeof(double complex) * (sw->reserved_back + sw->reserved_front));
     // Do we also need to enlarge?
     if (sw->ref + n > sw->buf + sw->buf_len) {
       sw->buf_len = sw->reserved_back + n;
-      sw->buf = realloc(sw->buf, sw->buf_len);
+      sw->buf = realloc(sw->buf, sizeof(double complex) * sw->buf_len);
       if (sw->buf == NULL) {
         return false;
       }
-      sw->ref = sw->buf + sw->reserved_back;
     }
-    size_t read = fread_exact(sw->ref + sw->reserved_front, 1, n - sw->reserved_front, sw->fin);
+    sw->ref = sw->buf + sw->reserved_back;
+    size_t read = fread_and_convert(sw->ref + sw->reserved_front, n - sw->reserved_front, sw->fin);
     sw->reserved_front = sw->reserved_front + read;
     if (read < n - sw->reserved_front) {
       return false;

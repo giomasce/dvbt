@@ -30,7 +30,7 @@ typedef struct {
 
   uint8_t frame_offset;
 
-  double *signal;
+  double complex *signal;
   double complex *freqs;
   uint8_t *bits;
 
