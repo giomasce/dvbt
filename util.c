@@ -20,7 +20,37 @@ static inline void fread_convert(double complex *dst, void *src_, size_t nmemb) 
 
 }
 
-#endif
+#endif /* FILE_FORMAT_I_U8 */
+
+#ifdef FILE_FORMAT_IQ_U8
+
+size_t fread_size = 2;
+
+static inline void fread_convert(double complex *dst, void *src_, size_t nmemb) {
+
+  size_t i;
+  uint8_t *src = src_;
+  for (i = 0; i < nmemb; i++) {
+    double real_sig = (((double) src[2*i]) - 128.0) / 128.0;
+    double imag_sig = (((double) src[2*i+1]) - 128.0) / 128.0;
+    dst[i] = real_sig + imag_sig*I;
+  }
+
+}
+
+#endif /* FILE_FORMAT_IQ_U8 */
+
+#ifdef FILE_FORMAT_COMPLEX
+
+size_t fread_size = sizeof(double complex);
+
+static inline void fread_convert(double complex *dst, void *src, size_t nmemb) {
+
+  memcpy(dst, src, sizeof(double complex) * nmemb);
+
+}
+
+#endif /* FILE_FORMAT_COMPLEX */
 
 static inline size_t fread_and_convert(double complex *ptr, size_t nmemb, FILE *stream) {
 
