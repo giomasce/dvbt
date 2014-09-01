@@ -42,6 +42,13 @@ void heap_push(Heap *heap, double weight, void *ptr);
 void heap_top(Heap *heap, double *weight, void **ptr);
 void heap_pop(Heap *heap);
 
-double csqabs(double complex x);
+static inline double csqabs(double complex x) {
+
+  double r = creal(x);
+  double i = cimag(x);
+
+  return r*r + i*i;
+
+}
 
 #endif
