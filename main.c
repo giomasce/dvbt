@@ -43,7 +43,12 @@ int main() {
   int min_offset = 0;
   for (i = 0; i < 2 * ctx->full_len; i+= 5000) {
     ofdm_context_decode_symbol(ctx, i);
+    char filename[1024];
+    snprintf(filename, 1024, "dump/debug_%06d", i);
+    ofdm_context_dump_debug(ctx, filename);
     shift = ofdm_context_optimize_offset(ctx, 5000.0, &value);
+    snprintf(filename, 1024, "dump/symbol_%06d", i);
+    ofdm_context_dump_freqs(ctx, filename);
     if (value < min_value) {
       min_value = value;
       min_offset = (int) round(i + shift);

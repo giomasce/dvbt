@@ -40,7 +40,7 @@ static inline void fread_convert(double complex *dst, void *src_, size_t nmemb) 
 
 #endif /* FILE_FORMAT_IQ_U8 */
 
-#ifdef FILE_FORMAT_COMPLEX
+#ifdef FILE_FORMAT_DOUBLE_COMPLEX
 
 size_t fread_size = sizeof(double complex);
 
@@ -50,7 +50,25 @@ static inline void fread_convert(double complex *dst, void *src, size_t nmemb) {
 
 }
 
-#endif /* FILE_FORMAT_COMPLEX */
+#endif /* FILE_FORMAT_DOUBLE_COMPLEX */
+
+#ifdef FILE_FORMAT_FLOAT_COMPLEX
+
+size_t fread_size = sizeof(float complex);
+
+static inline void fread_convert(double complex *dst, void *src_, size_t nmemb) {
+
+  size_t i;
+  float *src = src_;
+  for (i = 0; i < nmemb; i++) {
+    double real_sig = (double) src[2*i];
+    double imag_sig = (double) src[2*i+1];
+    dst[i] = real_sig + imag_sig*I;
+  }
+
+}
+
+#endif /* FILE_FORMAT_FLOAT_COMPLEX */
 
 static inline size_t fread_and_convert(double complex *ptr, size_t nmemb, FILE *stream) {
 

@@ -207,11 +207,15 @@ void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename) {
 
   FILE *fout = fopen(filename, "w");
   int idx;
-  for (idx = ctx->lower_idx; idx <= ctx->higher_idx; idx++) {
-    fprintf(fout, "%.20f %.20f (%f) -> (%d)", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]), csqabs(ctx->freqs[idx]), ctx->carrier_map[idx-ctx->lower_idx]);
-    if (ctx->carrier_map[idx-ctx->lower_idx] >= 0) {
-      fprintf(fout, " ");
-      print_bin(fout, ctx->bits[ctx->carrier_map[idx-ctx->lower_idx]], CONSTELLATION_16_QAM);
+  fprintf(fout, "%d %d\n", ctx->lower_idx, ctx->higher_idx);
+  for (idx = 0; idx < ctx->packet_len; idx++) {
+    fprintf(fout, "%.20f %.20f (%f)", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]), csqabs(ctx->freqs[idx]));
+    if (ctx->lower_idx <= idx && idx <= ctx->higher_idx) {
+      fprintf(fout, " -> (%d)", ctx->carrier_map[idx-ctx->lower_idx]);
+      if (ctx->carrier_map[idx-ctx->lower_idx] >= 0) {
+        fprintf(fout, " ");
+        print_bin(fout, ctx->bits[ctx->carrier_map[idx-ctx->lower_idx]], CONSTELLATION_16_QAM);
+      }
     }
     fprintf(fout, "\n");
   }

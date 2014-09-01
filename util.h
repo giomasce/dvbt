@@ -10,7 +10,8 @@
 #define bv_get(bv, pos) ((bv)[(pos)/8] & (1 << ((pos)%8)))
 #define bv_set(bv, pos, val) (bv)[(pos)/8] = (((bv)[(pos)/8] | ((!!(val)) << ((pos)%8))) & (((!(val)) << ((pos)%8)) ^ 0xff))
 
-#define FILE_FORMAT_COMPLEX
+#define FILE_FORMAT_FLOAT_COMPLEX
+//#define FILE_FORMAT_DOUBLE_COMPLEX
 //#define FILE_FORMAT_IQ_U8
 //#define FILE_FORMAT_I_U8
 
