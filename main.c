@@ -12,23 +12,23 @@ int main() {
   //fftw_plan_with_nthreads(8);
 
   FILE *fin;
-  fin = fopen("real_data.i", "r");
-  //fin = stdin;
+  //fin = fopen("real_data.i", "r");
+  fin = stdin;
 
   double samp_freq;
   double mod_freq;
   TransMode trans_mode;
   GuardInt guard_int;
 
-  /*samp_freq = 76.5e6;
+  samp_freq = 76.5e6;
   mod_freq = 5760.0 / 224e-6;
   trans_mode = TRANS_MODE_2K;
-  guard_int = GUARD_INT_1_32;*/
+  guard_int = GUARD_INT_1_32;
 
-  samp_freq = 8e6;
+  /*samp_freq = 8e6;
   mod_freq = 4e6;
   trans_mode = TRANS_MODE_8K;
-  guard_int = GUARD_INT_1_4;
+  guard_int = GUARD_INT_1_4;*/
 
   SlidingWindow *sw = sw_new(fin);
   OFDMContext *ctx = ofdm_context_new(samp_freq, mod_freq, trans_mode, guard_int, sw);
