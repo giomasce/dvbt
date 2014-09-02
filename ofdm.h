@@ -51,6 +51,7 @@ void ofdm_context_shift_freqs(OFDMContext *ctx, double samples);
 bool ofdm_context_read_tps_bit(OFDMContext *ctx);
 void ofdm_context_dump_debug(OFDMContext *ctx, char *filename);
 void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename);
+void ofdm_context_dump_gnuplot(OFDMContext *ctx, char *filename);
 void ofdm_context_normalize_energy(OFDMContext *ctx);
 void ofdm_context_decode_bits(OFDMContext *ctx);
 

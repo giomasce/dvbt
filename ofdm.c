@@ -207,8 +207,9 @@ void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename) {
 
   FILE *fout = fopen(filename, "w");
   int idx;
-  fprintf(fout, "%d %d\n", ctx->lower_idx, ctx->higher_idx);
-  for (idx = 0; idx < ctx->packet_len; idx++) {
+  //fprintf(fout, "%d %d\n", ctx->lower_idx, ctx->higher_idx);
+  //for (idx = 0; idx < ctx->packet_len; idx++) {
+  for (idx = ctx->lower_idx; idx <= ctx->higher_idx; idx++) {
     fprintf(fout, "%.20f %.20f (%f)", creal(ctx->freqs[idx]), cimag(ctx->freqs[idx]), csqabs(ctx->freqs[idx]));
     if (ctx->lower_idx <= idx && idx <= ctx->higher_idx) {
       fprintf(fout, " -> (%d)", ctx->carrier_map[idx-ctx->lower_idx]);
@@ -218,6 +219,17 @@ void ofdm_context_dump_freqs(OFDMContext *ctx, char *filename) {
       }
     }
     fprintf(fout, "\n");
+  }
+  fclose(fout);
+
+}
+
+void ofdm_context_dump_gnuplot(OFDMContext *ctx, char *filename) {
+
+  FILE *fout = fopen(filename, "w");
+  int idx;
+  for (idx = 0; idx < ctx->packet_len; idx++) {
+    fprintf(fout, "%.20f\n", csqabs(ctx->freqs[idx]));
   }
   fclose(fout);
 
