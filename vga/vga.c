@@ -23,12 +23,13 @@
 #include <GL/freeglut.h>
 
 /* Program configuration. */
-//#define INPUT_EMPTY
+#define INPUT_EMPTY
 //#define INPUT_SOCKET
 //#define INPUT_SINE
+//#define INPUT_GRADIENT
 //#define INPUT_FILE
 //#define INPUT_FOURIER
-#define INPUT_OFDM
+//#define INPUT_OFDM
 
 #define cosine cosine_quadratic
 //#define cosine cosine_sampled
@@ -49,6 +50,11 @@ double carrier_freq = 1e6;
 
 #ifdef INPUT_SINE
 #define init_data_buf init_data_buf_sine
+#define get_data get_data_from_buffer
+#endif
+
+#ifdef INPUT_GRADIENT
+#define init_data_buf init_data_buf_gradient
 #define get_data get_data_from_buffer
 #endif
 
@@ -109,6 +115,7 @@ struct timespec first_ts, ts, prev_ts;
 
 double samp_freq, horiz_freq, screen_time, fps;
 double signal_freq = 3e6;
+double gradient_duration = 250e-3;
 
 int dotclock;
 XF86VidModeModeLine modeline;
@@ -131,6 +138,17 @@ bool get_modeline() {
 unsigned char *data_buf = NULL;
 size_t data_pos = 0;
 size_t data_buf_len;
+
+void init_data_buf_gradient() {
+
+  data_buf_len = samp_freq * gradient_duration;
+  printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
+  data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
+  for (size_t i = 0; i < data_buf_len; i++) {
+    data_buf[i] = (unsigned char) round(255.0 * ((double) i) / ((double) data_buf_len));
+  }
+
+}
 
 void init_data_buf_sine() {
 
@@ -202,7 +220,7 @@ void init_data_buf_empty() {
   data_buf_len = 10000;
   printf("data_buf_len: %u\n", (unsigned int) data_buf_len);
   data_buf = (unsigned char*) malloc(data_buf_len * sizeof(unsigned char));
-  memset(data_buf, 127, data_buf_len);
+  memset(data_buf, 255, data_buf_len);
 
 }
 
